@@ -1,0 +1,27 @@
+import type { Task } from "@/app/tasks/data"
+import { TaskCard } from "@/app/tasks/pages/task-card"
+
+type TaskGridViewProps = {
+  tasks: Task[]
+  onSelect: (task: Task) => void
+  onEdit: (task: Task) => void
+  onDelete: (task: Task) => void
+  onRate: (task: Task) => void
+}
+
+export function TaskGridView({ tasks, onSelect, onEdit, onDelete, onRate }: TaskGridViewProps) {
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-4 gap-4">
+      {tasks.map((task) => (
+        <TaskCard
+          key={task.id}
+          task={task}
+          onSelect={onSelect}
+          onEdit={onEdit}
+          onDelete={onDelete}
+          onRate={onRate}
+        />
+      ))}
+    </div>
+  )
+}
