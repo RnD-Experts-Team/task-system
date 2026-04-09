@@ -4,91 +4,87 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Card, CardContent } from "@/components/ui/card"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
-import { ArrowLeft } from "lucide-react"
-import type { User, UserStatus } from "@/app/users/data"
+import { AlertCircle, ArrowLeft, Loader2 } from "lucide-react"
+import type { User } from "@/app/users/data"
 
 type UserFormProps = {
   mode: "create" | "edit"
   initialData?: User | null
+  /** True while the API request is in-flight */
+  submitting?: boolean
+  /** Backend / network error message to display */
+  submitError?: string | null
   onSubmit: (data: UserFormData) => void
   onCancel: () => void
 }
 
+// Data shape sent from the form to the parent
 export type UserFormData = {
   name: string
   email: string
-  role: string
-  status: UserStatus
-  position: string
-  avatarFile?: File | null
+  password: string
 }
 
-const roles = ["Administrator", "Editor", "Viewer", "Developer", "Designer", "Product Lead"]
-const statuses: { value: UserStatus; label: string }[] = [
-  { value: "active", label: "Active" },
-  { value: "away", label: "Away" },
-  { value: "suspended", label: "Suspended" },
-]
-
-export function UserForm({ mode, initialData, onSubmit, onCancel }: UserFormProps) {
+export function UserForm({
+  mode,
+  initialData,
+  submitting = false,
+  submitError,
+  onSubmit,
+  onCancel,
+}: UserFormProps) {
   const [name, setName] = useState(initialData?.name ?? "")
   const [email, setEmail] = useState(initialData?.email ?? "")
-  const [role, setRole] = useState(initialData?.role ?? "")
-  const [status, setStatus] = useState<UserStatus>(initialData?.status ?? "active")
-  const [position, setPosition] = useState("")
-  const [avatarFile, setAvatarFile] = useState<File | null>(null)
+  // Password is required on create, optional on edit
+  const [password, setPassword] = useState("")
   const [avatarPreview, setAvatarPreview] = useState<string | null>(initialData?.avatarUrl ?? null)
-  const [errors, setErrors] = useState<{ name?: string; email?: string }>({})
+  const [errors, setErrors] = useState<Record<string, string>>({})
   const prevObjectUrl = useRef<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+  // avatarFile state kept for future avatar upload functionality
+  const [_avatarFile, setAvatarFile] = useState<File | null>(null)
 
+  // Reset preview when switching between create ↔ edit
   useEffect(() => {
-    // reset preview when initialData changes (edit vs create)
     setAvatarPreview(initialData?.avatarUrl ?? null)
     setAvatarFile(null)
   }, [initialData])
 
+  // Cleanup object URLs on unmount
   useEffect(() => {
-    // cleanup previous object URL
     return () => {
-      if (prevObjectUrl.current) {
-        URL.revokeObjectURL(prevObjectUrl.current)
-      }
+      if (prevObjectUrl.current) URL.revokeObjectURL(prevObjectUrl.current)
     }
   }, [])
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    const ok = validate()
-    if (!ok) return
-    onSubmit({ name, email, role, status, position, avatarFile })
-  }
-
+  // ── Client-side validation ──────────────────────────────────────────────────
   function validate() {
-    const next: { name?: string; email?: string } = {}
+    const next: Record<string, string> = {}
     if (!name.trim()) next.name = "Name is required"
     if (!email.trim()) next.email = "Email is required"
     else if (!/\S+@\S+\.\S+/.test(email)) next.email = "Enter a valid email"
+    // Password is required for new users; optional for edits
+    if (mode === "create" && !password) next.password = "Password is required"
+    if (password && password.length < 8) next.password = "Password must be at least 8 characters"
     setErrors(next)
     return Object.keys(next).length === 0
   }
 
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!validate()) return
+    onSubmit({ name, email, password })
+  }
+
+  // ── Avatar helpers ──────────────────────────────────────────────────────────
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0] ?? null
     setAvatarFile(file)
     if (file) {
       const url = URL.createObjectURL(file)
       setAvatarPreview(url)
-      // revoke previous
       if (prevObjectUrl.current) URL.revokeObjectURL(prevObjectUrl.current)
       prevObjectUrl.current = url
     } else {
@@ -111,7 +107,7 @@ export function UserForm({ mode, initialData, onSubmit, onCancel }: UserFormProp
         <CardContent className="p-6 md:p-8">
           {/* Header */}
           <div className="flex items-center gap-4 mb-6">
-            <Button variant="ghost" size="icon-lg" onClick={onCancel}>
+            <Button variant="ghost" size="icon-lg" onClick={onCancel} disabled={submitting}>
               <ArrowLeft />
             </Button>
             <div className="flex flex-col gap-1">
@@ -131,17 +127,26 @@ export function UserForm({ mode, initialData, onSubmit, onCancel }: UserFormProp
             </div>
           </div>
 
+          {/* Backend / network error banner */}
+          {submitError && (
+            <div className="flex items-center gap-3 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive mb-6">
+              <AlertCircle className="size-4 shrink-0" />
+              <span className="flex-1">{submitError}</span>
+            </div>
+          )}
+
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-8">
-        {/* Personal Information */}
-        <section className="space-y-4">
-          <div className="flex items-center gap-2">
-            <h3 className="text-lg font-semibold uppercase tracking-widest text-muted-foreground">
-              Personal Information
-            </h3>
-          </div>
+            {/* Personal Information */}
+            <section className="space-y-4">
+              <div className="flex items-center gap-2">
+                <h3 className="text-lg font-semibold uppercase tracking-widest text-muted-foreground">
+                  Personal Information
+                </h3>
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Name */}
                   <div className="space-y-2">
                     <Label htmlFor="name">Full Name</Label>
                     <Input
@@ -150,11 +155,13 @@ export function UserForm({ mode, initialData, onSubmit, onCancel }: UserFormProp
                       onChange={(e) => setName(e.target.value)}
                       placeholder="Enter full name"
                       className="h-12 text-sm"
+                      disabled={submitting}
                     />
                     {errors.name && (
                       <p className="text-sm text-destructive mt-1">{errors.name}</p>
                     )}
                   </div>
+                  {/* Email */}
                   <div className="space-y-2">
                     <Label htmlFor="email">Email Address</Label>
                     <Input
@@ -164,35 +171,30 @@ export function UserForm({ mode, initialData, onSubmit, onCancel }: UserFormProp
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="Enter email address"
                       className="h-12 text-sm"
+                      disabled={submitting}
                     />
                     {errors.email && (
                       <p className="text-sm text-destructive mt-1">{errors.email}</p>
                     )}
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="position">Position</Label>
+                  {/* Password */}
+                  <div className="space-y-2 md:col-span-2">
+                    <Label htmlFor="password">
+                      Password{mode === "edit" && <span className="text-muted-foreground ml-1">(leave blank to keep current)</span>}
+                    </Label>
                     <Input
-                      id="position"
-                      value={position}
-                      onChange={(e) => setPosition(e.target.value)}
-                      placeholder="Enter position title"
+                      id="password"
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder={mode === "create" ? "Enter password" : "New password (optional)"}
                       className="h-12 text-sm"
+                      disabled={submitting}
+                      autoComplete="new-password"
                     />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="role">Role</Label>
-                    <Select value={role} onValueChange={setRole}>
-                      <SelectTrigger className="w-full h-12">
-                        <SelectValue placeholder="Select a role" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {roles.map((r) => (
-                          <SelectItem key={r} value={r}>
-                            {r}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    {errors.password && (
+                      <p className="text-sm text-destructive mt-1">{errors.password}</p>
+                    )}
                   </div>
                 </div>
 
@@ -212,10 +214,10 @@ export function UserForm({ mode, initialData, onSubmit, onCancel }: UserFormProp
                         onChange={handleFileChange}
                         aria-label="Upload avatar"
                       />
-                      <Button type="button" size="sm" onClick={() => fileInputRef.current?.click()}>
+                      <Button type="button" size="sm" onClick={() => fileInputRef.current?.click()} disabled={submitting}>
                         Upload
                       </Button>
-                      <Button type="button" size="sm" variant="ghost" onClick={handleClearAvatar}>
+                      <Button type="button" size="sm" variant="ghost" onClick={handleClearAvatar} disabled={submitting}>
                         Clear
                       </Button>
                     </div>
@@ -223,47 +225,21 @@ export function UserForm({ mode, initialData, onSubmit, onCancel }: UserFormProp
                   </div>
                 </aside>
               </div>
-        </section>
+            </section>
 
-        <Separator />
+            <Separator />
 
-        {/* Access & Status */}
-        <section className="space-y-4">
-          <div className="flex items-center gap-2">
-            <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-              Access & Status
-            </h3>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="status">Account Status</Label>
-            <Select value={status} onValueChange={(v) => setStatus(v as UserStatus)}>
-              <SelectTrigger className="w-full max-w-xs h-10">
-                <SelectValue placeholder="Select status" />
-              </SelectTrigger>
-              <SelectContent>
-                {statuses.map((s) => (
-                  <SelectItem key={s.value} value={s.value}>
-                    {s.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </section>
-
-        <Separator />
-
-        {/* Actions */}
-        <div className="flex items-center justify-end gap-3">
-          <Button type="button" variant="ghost" size="lg" onClick={onCancel}>
-            Discard
-          </Button>
-          <Button type="submit" size="lg">
-            {mode === "create" ? "Create User" : "Save Changes"}
-          </Button>
-        </div>
-      </form>
+            {/* Actions */}
+            <div className="flex items-center justify-end gap-3">
+              <Button type="button" variant="ghost" size="lg" onClick={onCancel} disabled={submitting}>
+                Discard
+              </Button>
+              <Button type="submit" size="lg" disabled={submitting}>
+                {submitting && <Loader2 className="size-4 animate-spin" />}
+                {mode === "create" ? "Create User" : "Save Changes"}
+              </Button>
+            </div>
+          </form>
         </CardContent>
       </Card>
     </div>

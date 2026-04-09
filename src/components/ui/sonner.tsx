@@ -37,7 +37,8 @@ const Toaster = ({ ...props }: ToasterProps) => {
       }
       toastOptions={{
         classNames: {
-          toast: "cn-toast",
+          // Attach a base class and a typed modifier (e.g. cn-toast cn-toast--success)
+          toast: ((t: any) => `cn-toast cn-toast--${(t?.type as string) ?? "neutral"}`) as any,
         },
       }}
       {...props}

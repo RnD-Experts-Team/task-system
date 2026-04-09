@@ -5,23 +5,21 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { ChevronDown } from "lucide-react"
 import { useState } from "react"
+import { useAuthStore } from "@/app/(auth)/stores/authStore"
 
-export function SiteHeader({ 
-  title = "Dashboard",
-  user = {
-    name: "Admin",
-    email: "admin@system.com",
-    avatar: ""
-  }
-}: { 
-  title?: string
-  user?: {
-    name: string
-    email: string
-    avatar: string
-  }
-}) {
+export function SiteHeader({ title = "Dashboard" }: { title?: string }) {
   const [isAccountOpen, setIsAccountOpen] = useState(false)
+  const user = useAuthStore((s) => s.user)
+
+  const name = user?.name ?? ""
+  const email = user?.email ?? ""
+  const avatar = user?.avatar_url ?? ""
+  const initials = name
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2) || "?"
 
   return (
     <header className="relative z-30 flex h-[var(--header-height)] shrink-0 items-center justify-between gap-2 border-b border-border bg-background transition-[width,height] ease-linear">
@@ -47,17 +45,17 @@ export function SiteHeader({
           <CollapsibleTrigger className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity rounded-md p-1">
             <div className="flex items-center gap-3">
               <Avatar className="h-8 w-8 rounded-lg">
-                <AvatarImage src={user.avatar} alt={user.name} />
+                <AvatarImage src={avatar} alt={name} />
                 <AvatarFallback className="rounded-lg bg-sidebar-primary text-sidebar-primary-foreground text-xs font-medium">
-                  {user.name.split(" ").map((n) => n[0]).join("").toUpperCase()}
+                  {initials}
                 </AvatarFallback>
               </Avatar>
               <div className="hidden sm:flex flex-col gap-0.5">
                 <span className="text-sm font-medium text-foreground">
-                  {user.name}
+                  {name}
                 </span>
                 <span className="text-xs text-muted-foreground">
-                  {user.email}
+                  {email}
                 </span>
               </div>
             </div>

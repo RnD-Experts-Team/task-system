@@ -8,11 +8,16 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { AlertCircle, Loader2 } from "lucide-react"
 import type { User } from "@/app/users/data"
 
 type ConfirmDeleteDialogProps = {
   user: User | null
   open: boolean
+  /** True while the DELETE request is in-flight */
+  submitting?: boolean
+  /** Error message from the last delete attempt */
+  submitError?: string | null
   onOpenChange: (open: boolean) => void
   onConfirm: () => void
 }
@@ -20,6 +25,8 @@ type ConfirmDeleteDialogProps = {
 export function ConfirmDeleteDialog({
   user,
   open,
+  submitting = false,
+  submitError,
   onOpenChange,
   onConfirm,
 }: ConfirmDeleteDialogProps) {
@@ -37,9 +44,19 @@ export function ConfirmDeleteDialog({
             will be unassigned.
           </AlertDialogDescription>
         </AlertDialogHeader>
+
+        {/* Show backend error if the delete request failed */}
+        {submitError && (
+          <div className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <AlertCircle className="size-4 shrink-0" />
+            <span>{submitError}</span>
+          </div>
+        )}
+
         <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <AlertDialogAction variant="destructive" onClick={onConfirm}>
+          <AlertDialogCancel disabled={submitting}>Cancel</AlertDialogCancel>
+          <AlertDialogAction variant="destructive" onClick={onConfirm} disabled={submitting}>
+            {submitting && <Loader2 className="size-4 animate-spin" />}
             Delete
           </AlertDialogAction>
         </AlertDialogFooter>

@@ -21,14 +21,14 @@ import {
   TrendingUp,
   Users,
 } from "lucide-react"
-import { users } from "@/app/users/data"
+import { useUsers } from "@/hooks/useUsers"
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type WeightedResult = {
   userId: string
   name: string
-  avatarUrl: string
+  avatarUrl: string | null
   totalPoints: number
   ratingPercent: number
 }
@@ -49,10 +49,9 @@ export default function WeightedRatingsPage() {
   const [endDate, setEndDate] = useState("")
   const [results, setResults] = useState<WeightedResult[]>([])
 
-  const activeUsers = useMemo(
-    () => users.filter((u) => u.status === "active"),
-    []
-  )
+  const { users } = useUsers()
+
+  const activeUsers = useMemo(() => (users ?? []).filter((u) => u.status === "active"), [users])
 
   function toggleUser(userId: string) {
     setSelectedUserIds((prev) =>
@@ -165,7 +164,7 @@ export default function WeightedRatingsPage() {
                     checked={selectedUserIds.includes(user.id)}
                   />
                   <Avatar className="size-6">
-                    <AvatarImage src={user.avatarUrl} alt={user.name} />
+                    <AvatarImage src={user.avatarUrl ?? undefined} alt={user.name} />
                     <AvatarFallback className="text-[9px]">
                       {getInitials(user.name)}
                     </AvatarFallback>
@@ -247,10 +246,7 @@ export default function WeightedRatingsPage() {
                       </p>
                       <div className="flex items-center gap-2 mt-1">
                         <Avatar className="size-7">
-                          <AvatarImage
-                            src={topPerformer.avatarUrl}
-                            alt={topPerformer.name}
-                          />
+                          <AvatarImage src={topPerformer.avatarUrl ?? undefined} alt={topPerformer.name} />
                           <AvatarFallback className="text-[9px]">
                             {getInitials(topPerformer.name)}
                           </AvatarFallback>
@@ -307,7 +303,7 @@ export default function WeightedRatingsPage() {
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <Avatar className="size-7">
-                              <AvatarImage src={r.avatarUrl} alt={r.name} />
+                              <AvatarImage src={r.avatarUrl ?? undefined} alt={r.name} />
                               <AvatarFallback className="text-[9px]">
                                 {getInitials(r.name)}
                               </AvatarFallback>

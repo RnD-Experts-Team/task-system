@@ -3,15 +3,15 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
-import { Plus, Search, LayoutList, LayoutGrid } from "lucide-react"
+import { Skeleton } from "@/components/ui/skeleton"
+import { AlertCircle, Plus, Search, LayoutList, LayoutGrid, RefreshCw } from "lucide-react"
 import { Pagination } from "@/components/pagination"
 import { PaginationInfo } from "@/components/pagination-info"
-import { usePagination } from "@/hooks/use-pagination"
 import { UserTableView } from "@/app/users/pages/user-table-view"
 import { UserGridView } from "@/app/users/pages/user-grid-view"
 import { UserForm } from "@/app/users/pages/user-form"
 import { ConfirmDeleteDialog } from "@/app/users/pages/confirm-delete-dialog"
-import { users } from "@/app/users/data"
+import { useUsers } from "@/hooks/useUsers"
 import type { User } from "@/app/users/data"
 import type { UserFormData } from "@/app/users/pages/user-form"
 import { UserDetailSheet } from "./user-detail-sheet"
@@ -23,14 +23,14 @@ export default function UsersPage() {
   const [view, setView] = useState<ViewMode>("table")
   const [search, setSearch] = useState("")
 
-  // Page-level view state
+  // Page-level view state (list vs create/edit form)
   const [pageView, setPageView] = useState<PageView>("list")
   const [formMode, setFormMode] = useState<"create" | "edit">("create")
 
-  // Selected user state
+  // The user currently being edited (null for create)
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
 
-  // Sheet state
+  // Sheet (detail panel) state
   const [sheetOpen, setSheetOpen] = useState(false)
   const [sheetUser, setSheetUser] = useState<User | null>(null)
 
@@ -38,6 +38,22 @@ export default function UsersPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [deleteUser, setDeleteUser] = useState<User | null>(null)
 
+  // ── API data via useUsers hook ────────────────────────────────────────────────
+  const {
+    users,
+    pagination,
+    loading,
+    error,
+    submitting,
+    submitError,
+    fetchUsers,
+    createUser,
+    updateUser,
+    deleteUser: deleteUserApi,
+    clearSubmitError,
+  } = useUsers()
+
+  // Client-side search filters the current page
   const filtered = useMemo(() => {
     if (!search.trim()) return users
     const q = search.toLowerCase()
@@ -45,19 +61,29 @@ export default function UsersPage() {
       (u) =>
         u.name.toLowerCase().includes(q) ||
         u.email.toLowerCase().includes(q) ||
-        u.role.toLowerCase().includes(q)
+        u.role.toLowerCase().includes(q),
     )
-  }, [search])
+  }, [users, search])
 
-  const { page, totalPages, paged, startItem, endItem, totalItems, setPage, resetPage } = usePagination(filtered)
+  // ── Pagination helpers ───────────────────────────────────────────────────────
+  const currentPage = pagination?.current_page ?? 1
+  const totalPages = search ? 1 : (pagination?.last_page ?? 1)
+  const totalItems = search ? filtered.length : (pagination?.total ?? 0)
+  const startItem = search ? (filtered.length ? 1 : 0) : (pagination?.from ?? 0)
+  const endItem = search ? filtered.length : (pagination?.to ?? 0)
+  const displayedUsers = filtered
+
+  // ── Navigation handlers ─────────────────────────────────────────────────────
 
   function handleCreate() {
+    clearSubmitError()
     setSelectedUser(null)
     setFormMode("create")
     setPageView("form")
   }
 
   function handleEdit(user: User) {
+    clearSubmitError()
     setSelectedUser(user)
     setFormMode("edit")
     setPageView("form")
@@ -65,14 +91,20 @@ export default function UsersPage() {
   }
 
   function handleDelete(user: User) {
+    clearSubmitError()
     setDeleteUser(user)
     setDeleteDialogOpen(true)
   }
 
-  function handleConfirmDelete() {
-    // UI-only stub — no actual deletion
-    setDeleteDialogOpen(false)
-    setDeleteUser(null)
+  // ── Real delete via API ─────────────────────────────────────────────────────
+  async function handleConfirmDelete() {
+    if (!deleteUser) return
+    const ok = await deleteUserApi(deleteUser.id)
+    if (ok) {
+      setDeleteDialogOpen(false)
+      setDeleteUser(null)
+    }
+    // If not ok, the dialog stays open showing submitError
   }
 
   function handleSelect(user: User) {
@@ -80,23 +112,53 @@ export default function UsersPage() {
     setSheetOpen(true)
   }
 
-  function handleFormSubmit(_data: UserFormData) {
-    // UI-only stub — no actual persistence
-    setPageView("list")
-    setSelectedUser(null)
+  // ── Real create / update via API ────────────────────────────────────────────
+  async function handleFormSubmit(data: UserFormData) {
+    if (formMode === "create") {
+      // Create needs name, email, and password
+      const ok = await createUser({
+        name: data.name,
+        email: data.email,
+        password: data.password,
+      })
+      if (ok) {
+        setPageView("list")
+        setSelectedUser(null)
+      }
+    } else if (selectedUser) {
+      // Update — only include password if the user typed one
+      const ok = await updateUser(selectedUser.id, {
+        name: data.name,
+        email: data.email,
+        ...(data.password ? { password: data.password } : {}),
+      })
+      if (ok) {
+        setPageView("list")
+        setSelectedUser(null)
+      }
+    }
   }
 
   function handleFormCancel() {
+    clearSubmitError()
     setPageView("list")
     setSelectedUser(null)
   }
 
-  // Show form view
+  // ── Change API page ─────────────────────────────────────────────────────────
+  function handlePageChange(newPage: number) {
+    setSearch("")
+    fetchUsers(newPage)
+  }
+
+  // ── Form view ───────────────────────────────────────────────────────────────
   if (pageView === "form") {
     return (
       <UserForm
         mode={formMode}
         initialData={selectedUser}
+        submitting={submitting}
+        submitError={submitError}
         onSubmit={handleFormSubmit}
         onCancel={handleFormCancel}
       />
@@ -111,8 +173,9 @@ export default function UsersPage() {
           <div className="flex flex-col gap-1">
             <div className="flex items-center gap-3">
               <h2 className="text-3xl font-bold tracking-tight">Users</h2>
+              {/* Show total from API when not searching, otherwise show filtered count */}
               <Badge variant="secondary" className="uppercase tracking-wider">
-                {filtered.length} Users
+                {loading ? "…" : `${totalItems} Users`}
               </Badge>
             </div>
             <p className="text-sm text-muted-foreground max-w-md">
@@ -129,18 +192,33 @@ export default function UsersPage() {
           </Button>
         </div>
 
+        {/* ── Error banner ────────────────────────────────────────────────────── */}
+        {error && (
+          <div className="flex items-center gap-3 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+            <AlertCircle className="size-4 shrink-0" />
+            <span className="flex-1">{error}</span>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 gap-1.5 text-destructive hover:text-destructive"
+              onClick={() => fetchUsers(currentPage)}
+            >
+              <RefreshCw className="size-3.5" />
+              Retry
+            </Button>
+          </div>
+        )}
+
         {/* Controls */}
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="relative flex-1 max-w-sm">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
             <Input
-              placeholder="Filter by name, email or role..."
+              placeholder="Filter by name, email or role…"
               value={search}
-              onChange={(e) => {
-                setSearch(e.target.value)
-                resetPage()
-              }}
+              onChange={(e) => setSearch(e.target.value)}
               className="pl-8 h-10 text-sm"
+              disabled={loading}
             />
           </div>
 
@@ -163,32 +241,60 @@ export default function UsersPage() {
           </ToggleGroup>
         </div>
 
-        {/* Content */}
-        {view === "table" ? (
-          <UserTableView
-            users={paged}
-            onEdit={handleEdit}
-            onDelete={handleDelete}
-            onSelect={handleSelect}
-          />
-        ) : (
-          <UserGridView
-            users={paged}
-            onEdit={handleEdit}
-            onDelete={handleDelete}
-            onSelect={handleSelect}
-          />
+        {/* ── Loading skeleton ─────────────────────────────────────────────────── */}
+        {loading && (
+          <div className="space-y-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <Skeleton key={i} className="h-14 w-full rounded-lg" />
+            ))}
+          </div>
         )}
 
-        {/* Pagination */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <PaginationInfo startItem={startItem} endItem={endItem} totalItems={totalItems} label="users" />
-          <Pagination
-            currentPage={page}
-            totalPages={totalPages}
-            onPageChange={setPage}
-          />
-        </div>
+        {/* ── Content (only shown when not loading) ────────────────────────────── */}
+        {!loading && !error && (
+          <>
+            {displayedUsers.length === 0 ? (
+              // Empty state — shown when the API returned zero users or search matched nothing
+              <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed py-16 text-center text-muted-foreground">
+                <Search className="size-8 opacity-40" />
+                <p className="text-sm">
+                  {search ? `No users matched "${search}"` : "No users found."}
+                </p>
+              </div>
+            ) : view === "table" ? (
+              <UserTableView
+                users={displayedUsers}
+                onEdit={handleEdit}
+                onDelete={handleDelete}
+                onSelect={handleSelect}
+              />
+            ) : (
+              <UserGridView
+                users={displayedUsers}
+                onEdit={handleEdit}
+                onDelete={handleDelete}
+                onSelect={handleSelect}
+              />
+            )}
+
+            {/* Pagination — hidden when search is active (all results shown at once) */}
+            {!search && displayedUsers.length >= 15 && (
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <PaginationInfo
+                  startItem={startItem}
+                  endItem={endItem}
+                  totalItems={totalItems}
+                  label="users"
+                />
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  onPageChange={handlePageChange}
+                />
+              </div>
+            )}
+          </>
+        )}
       </div>
 
       {/* User Detail Sheet */}
@@ -199,10 +305,12 @@ export default function UsersPage() {
         onEdit={handleEdit}
       />
 
-      {/* Confirm Delete Dialog */}
+      {/* Confirm Delete Dialog — shows loading + error from the API */}
       <ConfirmDeleteDialog
         user={deleteUser}
         open={deleteDialogOpen}
+        submitting={submitting}
+        submitError={submitError}
         onOpenChange={setDeleteDialogOpen}
         onConfirm={handleConfirmDelete}
       />

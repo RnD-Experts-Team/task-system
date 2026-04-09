@@ -1,14 +1,29 @@
 import { memo } from "react"
 import { CalendarDays } from "lucide-react"
 import { cn } from "@/lib/utils"
+import type { UpcomingDeadline } from "@/types"
 
-export const CRITICAL_DEADLINES = [
-  { id: 1, title: "Finalize Q4 Strategy", due: "Today, 05:00 PM", urgency: "urgent" as const },
-  { id: 2, title: "Design Review — Apollo", due: "Tomorrow, 10:30 AM", urgency: "high" as const },
-  { id: 3, title: "Client Demo Preparation", due: "Apr 3, 02:00 PM", urgency: "medium" as const },
-]
+// Shape for a single deadline row shown in the card
+export interface DeadlineRow {
+  id: number
+  title: string
+  due: string
+  urgency: "urgent" | "high" | "medium"
+}
 
-export default memo(function DeadlineItem({ item }: { item: (typeof CRITICAL_DEADLINES)[number] }) {
+/** Map API upcoming_deadlines to display rows */
+export function buildDeadlineRows(deadlines: UpcomingDeadline[] | undefined): DeadlineRow[] {
+  if (!deadlines?.length) return []
+  return deadlines.slice(0, 5).map((d) => ({
+    id: d.id,
+    title: d.name,
+    due: d.due_date,
+    // Determine urgency from days until due
+    urgency: d.days_until_due <= 1 ? "urgent" : d.days_until_due <= 3 ? "high" : "medium",
+  }))
+}
+
+export default memo(function DeadlineItem({ item }: { item: DeadlineRow }) {
   const config = {
     urgent: { border: "border-destructive", bg: "bg-destructive/5", badge: "bg-destructive/10 text-destructive", label: "Urgent" },
     high: { border: "border-primary", bg: "bg-primary/5", badge: "bg-primary/10 text-primary", label: "High" },

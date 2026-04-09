@@ -407,3 +407,54 @@ input[type="date"] {
   outline: none;
   box-shadow: 0 6px 22px oklch(0 0 0 / 30%), 0 0 0 4px oklch(0.505 0.213 27.518 / 14%);
 }
+
+/* ─── Toast styles (sonner) ───────────────────────────────────────── */
+.cn-toast {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 0.8rem;
+  min-width: 280px;
+  max-width: 460px;
+  border-radius: var(--radius-sm);
+  background: var(--toast-bg, var(--popover));
+  color: var(--toast-text, var(--popover-foreground));
+  border: 1px solid var(--toast-border, var(--border));
+  box-shadow: 0 10px 30px rgba(0,0,0,0.18);
+  font-size: 0.95rem;
+}
+
+.cn-toast svg { color: inherit; }
+.cn-toast .title { font-weight: 600; }
+.cn-toast .description { opacity: 0.9; font-size: 0.9rem; }
+
+/* Default / neutral */
+.cn-toast--neutral { --toast-bg: var(--popover); --toast-text: var(--popover-foreground); --toast-border: var(--border); }
+
+/* Common semantic variants */
+.cn-toast--success { --toast-bg: var(--chart-2); --toast-text: var(--primary-foreground); --toast-border: color-mix(in srgb, var(--chart-2) 70%, #000 10%); }
+.cn-toast--error { --toast-bg: var(--destructive); --toast-text: var(--primary-foreground); --toast-border: color-mix(in srgb, var(--destructive) 70%, #000 10%); }
+.cn-toast--info { --toast-bg: var(--secondary); --toast-text: var(--secondary-foreground); --toast-border: color-mix(in srgb, var(--secondary) 70%, #000 10%); }
+.cn-toast--warning { --toast-bg: var(--accent); --toast-text: var(--accent-foreground); --toast-border: color-mix(in srgb, var(--accent) 70%, #000 10%); }
+
+/* Primary / accent mapping */
+.cn-toast--primary { --toast-bg: var(--primary); --toast-text: var(--primary-foreground); --toast-border: color-mix(in srgb, var(--primary) 70%, #000 10%); }
+.cn-toast--secondary { --toast-bg: var(--secondary); --toast-text: var(--secondary-foreground); --toast-border: color-mix(in srgb, var(--secondary) 70%, #000 10%); }
+.cn-toast--accent { --toast-bg: var(--accent); --toast-text: var(--accent-foreground); --toast-border: color-mix(in srgb, var(--accent) 70%, #000 10%); }
+.cn-toast--destructive { --toast-bg: var(--destructive); --toast-text: var(--primary-foreground); --toast-border: color-mix(in srgb, var(--destructive) 70%, #000 10%); }
+
+/* Chart-based palette variants */
+.cn-toast--chart1 { --toast-bg: var(--chart-1); --toast-text: var(--primary-foreground); --toast-border: color-mix(in srgb, var(--chart-1) 70%, #000 10%); }
+.cn-toast--chart2 { --toast-bg: var(--chart-2); --toast-text: var(--primary-foreground); --toast-border: color-mix(in srgb, var(--chart-2) 70%, #000 10%); }
+.cn-toast--chart3 { --toast-bg: var(--chart-3); --toast-text: var(--primary-foreground); --toast-border: color-mix(in srgb, var(--chart-3) 70%, #000 10%); }
+.cn-toast--chart4 { --toast-bg: var(--chart-4); --toast-text: var(--primary-foreground); --toast-border: color-mix(in srgb, var(--chart-4) 70%, #000 10%); }
+.cn-toast--chart5 { --toast-bg: var(--chart-5); --toast-text: var(--primary-foreground); --toast-border: color-mix(in srgb, var(--chart-5) 70%, #000 10%); }
+
+/* Subtle hover/interaction states */
+.cn-toast:hover { transform: translateY(-2px); transition: transform 180ms ease; }
+
+/* Small action and close button adjustments (sonner internals) */
+.cn-toast [role="button"] { background: transparent; border: none; color: inherit; }
+
+/* Make sure toasts remain readable in dark mode */
+.dark .cn-toast { box-shadow: 0 8px 28px rgba(0,0,0,0.5); }

@@ -1,14 +1,33 @@
 import { memo } from "react"
 import { AlertCircle, HelpCircle, ChevronRight } from "lucide-react"
 import { cn } from "@/lib/utils"
+import type { HelpRequestsStats } from "@/types"
 
-export const HELP_REQUESTS = [
-  { id: 1, title: "Database connection timeout error", reporter: "Alex G.", time: "2 hours ago", priority: "high" as const },
-  { id: 2, title: "Inquiry about API rate limits", reporter: "Fintech Inc.", time: "5 hours ago", priority: "medium" as const },
-  { id: 3, title: "UI glitch on the reports screen", reporter: "Dana L.", time: "Yesterday", priority: "low" as const },
-]
+// Shape for a single help request row shown in the list
+export interface HelpRequestRow {
+  id: number
+  title: string
+  reporter: string
+  time: string
+  priority: "high" | "medium" | "low"
+}
 
-export default memo(function HelpRequestItem({ item }: { item: (typeof HELP_REQUESTS)[number] }) {
+/** Map API help_requests_stats to display rows (top helpers as preview) */
+export function buildHelpRequestRows(stats: HelpRequestsStats | undefined): HelpRequestRow[] {
+  if (!stats) return []
+  // Show a summary row per stat bucket so the UI is never empty
+  const rows: HelpRequestRow[] = []
+  if (stats.pending > 0)
+    rows.push({ id: 1, title: `${stats.pending} pending help request(s)`, reporter: "System", time: "Now", priority: "high" })
+  if (stats.completed > 0)
+    rows.push({ id: 2, title: `${stats.completed} completed help request(s)`, reporter: "System", time: "Recently", priority: "low" })
+  stats.top_helpers.forEach((h, i) =>
+    rows.push({ id: 10 + i, title: `${h.user_name} helped ${h.help_count} time(s)`, reporter: h.user_name, time: "", priority: "medium" }),
+  )
+  return rows
+}
+
+export default memo(function HelpRequestItem({ item }: { item: HelpRequestRow }) {
   const iconMap = {
     high: <AlertCircle className="size-4 text-destructive" />,
     medium: <HelpCircle className="size-4 text-primary" />,

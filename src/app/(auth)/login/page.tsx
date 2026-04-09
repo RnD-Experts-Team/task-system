@@ -1,10 +1,14 @@
 import { useState } from "react"
 import { useForm } from "react-hook-form"
+import { isCancel, isAxiosError } from "axios"
+import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { ThemeToggle } from "@/components/theme-toggle"
+import type { ApiValidationError } from "@/types"
+import { useAuth } from "../hooks/useAuth"
 
 interface LoginFormValues {
   email: string
@@ -13,8 +17,9 @@ interface LoginFormValues {
 }
 
 export default function LoginPage() {
-  const [isLoading, setIsLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  const [apiError, setApiError] = useState<string | null>(null)
+  const { login, isLoading } = useAuth()
 
   const {
     register,
@@ -29,10 +34,31 @@ export default function LoginPage() {
   const remember = watch("remember")
 
   async function onSubmit(data: LoginFormValues) {
-    setIsLoading(true)
-    console.log("Login attempt:", data)
-    await new Promise((resolve) => setTimeout(resolve, 1500))
-    setIsLoading(false)
+    setApiError(null)
+    try {
+      await login({ email: data.email, password: data.password })
+    } catch (error) {
+      if (isCancel(error)) return
+
+      if (isAxiosError<ApiValidationError>(error)) {
+        const msg =
+          error.response?.data?.message || "Invalid email or password."
+
+        if (error.response?.data?.errors) {
+          const fieldErrors = Object.values(error.response.data.errors).flat()
+          setApiError(fieldErrors.join(" "))
+        } else {
+          setApiError(msg)
+        }
+
+        toast.error(msg)
+      } else {
+        const fallback = "An unexpected error occurred. Please try again."
+        setApiError(fallback)
+        toast.error(fallback)
+        console.error("Login error:", error)
+      }
+    }
   }
 
   return (
@@ -156,6 +182,12 @@ export default function LoginPage() {
               Stay signed in
             </Label>
           </div>
+
+          {apiError && (
+            <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              {apiError}
+            </p>
+          )}
 
           <Button
             type="submit"

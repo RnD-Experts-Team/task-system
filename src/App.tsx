@@ -6,6 +6,7 @@ import { ThemeProvider } from "@/components/theme-provider"
 import { ErrorBoundary } from "@/components/error-boundary"
 import Layout from "@/app/layout"
 import AuthLayout from "@/app/(auth)/layout"
+import { AuthGuard } from "@/app/(auth)/components/AuthGuard"
 import { Loader2 } from "lucide-react"
 
 // Lazy-loaded pages
@@ -51,7 +52,7 @@ function App() {
                 <Route element={<AuthLayout />}>
                   <Route path="login" element={<LoginPage />} />
                 </Route>
-                <Route element={<Layout />}>
+                <Route element={<AuthGuard><Layout /></AuthGuard>}>
                   <Route index element={<DashboardPage />} />
                   <Route path="users" element={<UsersPage />} />
                   <Route path="projects" element={<ProjectsPage />} />

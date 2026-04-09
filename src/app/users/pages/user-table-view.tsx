@@ -9,7 +9,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Pencil, Trash2 } from "lucide-react"
+import { Pencil, Trash2, Shield, Code } from "lucide-react"
 import type { User } from "@/app/users/data"
 
 type UserTableViewProps = {
@@ -57,9 +57,23 @@ export function UserTableView({ users, onEdit, onDelete, onSelect }: UserTableVi
           <TableRow key={user.id} className="group">
             <TableCell className="py-3">
               <div className="flex items-center gap-4">
-                <Avatar size="lg" className="size-12">
-                  <AvatarImage src={user.avatarUrl} alt={user.name} />
-                  <AvatarFallback>{getInitials(user.name)}</AvatarFallback>
+                {/* Avatar with role overlay. If no avatarUrl the initials are used. */}
+                <Avatar size="lg" className="size-12 relative">
+                  {user.avatarUrl ? (
+                    <AvatarImage src={user.avatarUrl} alt={user.name} />
+                  ) : (
+                    <AvatarFallback>{getInitials(user.name)}</AvatarFallback>
+                  )}
+
+                  {user.role?.toLowerCase().includes("admin") ? (
+                    <span className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-amber-500 ring-2 ring-background text-white">
+                      <Shield className="size-3" />
+                    </span>
+                  ) : user.role?.toLowerCase().includes("developer") ? (
+                    <span className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-sky-500 ring-2 ring-background text-white">
+                      <Code className="size-3" />
+                    </span>
+                  ) : null}
                 </Avatar>
                 <button
                   type="button"

@@ -4,6 +4,7 @@ import { CardContent } from "@/components/ui/card"
 import { TrendingUp } from "lucide-react"
 import { cn } from "@/lib/utils"
 
+// Props for a single stat card — value is a string so the caller can format it
 interface StatCardProps {
   label: string
   value: string
