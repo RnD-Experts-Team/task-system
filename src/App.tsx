@@ -13,9 +13,11 @@ import { Loader2 } from "lucide-react"
 const DashboardPage = lazy(() => import("@/app/dashboard/page"))
 const LoginPage = lazy(() => import("@/app/(auth)/login/page"))
 const UsersPage = lazy(() => import("@/app/users/pages/page"))
-const ProjectsPage = lazy(() => import("@/app/projects/pages/page"))
-const CreateProjectPage = lazy(() => import("@/app/projects/create-project"))
-const EditProjectPage = lazy(() => import("@/app/projects/edit-project"))
+const ProjectsPage = lazy(() => import("@/app/projects/page"))
+const CreateProjectPage = lazy(() => import("@/app/projects/create-project-page"))
+const EditProjectPage = lazy(() => import("@/app/projects/edit-project-page"))
+const ProjectDetailsPage = lazy(() => import("@/app/projects/project-details-page"))
+const KanbanBoardPage = lazy(() => import("@/app/projects/kanban-board-page"))
 const TasksPage = lazy(() => import("@/app/tasks/pages/page"))
 const HelpRequestsPage = lazy(() => import("@/app/help-requests/pages/page"))
 const TicketsPage = lazy(() => import("@/app/tickets/page"))
@@ -56,8 +58,12 @@ function App() {
                   <Route index element={<DashboardPage />} />
                   <Route path="users" element={<UsersPage />} />
                   <Route path="projects" element={<ProjectsPage />} />
-                  <Route path="projects/new" element={<CreateProjectPage />} />
+                  <Route path="projects/create" element={<CreateProjectPage />} />
                   <Route path="projects/:id/edit" element={<EditProjectPage />} />
+                  <Route path="projects/:id" element={<ProjectDetailsPage />} />
+                  {/* Support both routes so old links and new links both work. */}
+                  <Route path="projects/:id/kanban" element={<KanbanBoardPage />} />
+                  <Route path="projects/:id/kanban-board" element={<KanbanBoardPage />} />
                   <Route path="tasks" element={<TasksPage />} />
                   <Route path="help-requests" element={<HelpRequestsPage />} />
                   <Route path="tickets" element={<TicketsPage />} />

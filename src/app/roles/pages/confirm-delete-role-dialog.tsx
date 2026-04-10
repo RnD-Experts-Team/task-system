@@ -8,7 +8,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import type { Role } from "@/app/roles/data"
+import type { Role } from "@/types"
 
 type ConfirmDeleteRoleDialogProps = {
   role: Role | null

@@ -1,11 +1,11 @@
-import { useState, useCallback } from "react"
+﻿import { useState, useCallback } from "react"
 import { Card } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft, Calendar, CheckSquare, Plus } from "lucide-react"
-import type { Project, KanbanColumn, KanbanTask } from "@/app/projects/data"
+import { ArrowLeft, Calendar, CheckSquare } from "lucide-react"
 import { cn } from "@/lib/utils"
+import type { KanbanData, KanbanTask, KanbanSectionData } from "../types"
 import {
   DndContext,
   DragOverlay,
@@ -25,16 +25,32 @@ import {
 } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
 
+// ── Helper types for internal board state ─────────────────────────
+
+/** A column in the board (one per status per section) */
+type BoardColumn = {
+  id: string
+  status: string
+  title: string
+  color: string
+  tasks: KanbanTask[]
+}
+
+/** A visual section grouping columns */
+type BoardSection = {
+  id: string
+  title: string
+  columns: BoardColumn[]
+}
+
+// ── Props for the board ───────────────────────────────────────────
+
 type KanbanBoardProps = {
-  project: Project
+  kanban: KanbanData
   onBack: () => void
 }
 
-type KanbanSection = {
-  id: string
-  title: string
-  columns: KanbanColumn[]
-}
+// ── Helpers ───────────────────────────────────────────────────────
 
 function getInitials(name: string) {
   return name
@@ -42,15 +58,58 @@ function getInitials(name: string) {
     .map((n) => n[0])
     .join("")
     .toUpperCase()
+    .slice(0, 2)
 }
 
+/** Map status keys to display labels and colors */
+const statusConfig: Record<string, { title: string; color: string }> = {
+  pending:     { title: "Pending",     color: "bg-amber-500/50" },
+  in_progress: { title: "In Progress", color: "bg-blue-500/50" },
+  done:        { title: "Done",        color: "bg-emerald-500/50" },
+  rated:       { title: "Rated",       color: "bg-fuchsia-500/50" },
+}
+
+/** Map priority to badge style */
 const priorityConfig: Record<string, { label: string; className: string }> = {
-  high: { label: "High Priority", className: "bg-destructive/10 text-destructive" },
-  medium: { label: "Med Priority", className: "bg-blue-500/10 text-blue-400" },
-  low: { label: "Low Priority", className: "bg-green-500/10 text-green-400" },
+  critical: { label: "Critical",      className: "bg-red-600/10 text-red-400" },
+  high:     { label: "High Priority", className: "bg-destructive/10 text-destructive" },
+  medium:   { label: "Med Priority",  className: "bg-blue-500/10 text-blue-400" },
+  low:      { label: "Low Priority",  className: "bg-green-500/10 text-green-400" },
 }
 
-// ── Sortable Task Card ────────────────────────────────────────────────────
+/** Build the internal board sections from the API response */
+function buildBoardSections(sections: KanbanSectionData[]): BoardSection[] {
+  return sections.map((s) => {
+    const statuses = ["pending", "in_progress", "done", "rated"] as const
+
+    const columns: BoardColumn[] = statuses.map((status) => {
+      const config = statusConfig[status]
+      return {
+        // Unique id combining section + status so columns don't collide across sections
+        id: `col-${s.section.id}-${status}`,
+        status,
+        title: config.title,
+        color: config.color,
+        tasks: s.tasks_by_status[status] ?? [],
+      }
+    })
+
+    return {
+      id: `section-${s.section.id}`,
+      title: s.section.name,
+      columns,
+    }
+  })
+}
+
+/** Format a date string like "2025-12-31" to a short label */
+function formatDueLabel(dateStr: string | null): string {
+  if (!dateStr) return "No date"
+  const d = new Date(dateStr)
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+}
+
+// ── Sortable Task Card ────────────────────────────────────────────
 
 function SortableTaskCard({ task }: { task: KanbanTask }) {
   const {
@@ -60,7 +119,7 @@ function SortableTaskCard({ task }: { task: KanbanTask }) {
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: task.id })
+  } = useSortable({ id: String(task.id) })
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -80,64 +139,87 @@ function SortableTaskCard({ task }: { task: KanbanTask }) {
   )
 }
 
+/** Renders the visual content of a task card */
 function TaskCardInner({ task }: { task: KanbanTask }) {
-  const config = priorityConfig[task.priority]
-  const isHighPriority = task.priority === "high"
+  const config = priorityConfig[task.priority] ?? priorityConfig.medium
+  const isHighPriority = task.priority === "high" || task.priority === "critical"
+
+  // Count completed vs total subtasks
+  const subtasksDone = task.subtasks.filter((st) => st.is_complete).length
+  const subtasksTotal = task.subtasks.length
+
+  // Show first assigned user as the card avatar
+  const assignee = task.assigned_users[0]
 
   return (
     <Card
       className={cn(
         "p-4 cursor-grab active:cursor-grabbing border-l-2 transition-all hover:shadow-md",
-        isHighPriority ? "border-l-destructive/40 hover:border-l-destructive" : "border-l-primary/40 hover:border-l-primary",
+        isHighPriority
+          ? "border-l-destructive/40 hover:border-l-destructive"
+          : "border-l-primary/40 hover:border-l-primary",
       )}
     >
+      {/* Priority badge + subtask counter */}
       <div className="flex items-start justify-between mb-2">
         <span className={cn("px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider", config.className)}>
           {config.label}
         </span>
-        <div className="flex items-center gap-1 text-muted-foreground">
-          <span className="text-[10px] font-medium">
-            {task.subtasksDone} / {task.subtasksTotal}
-          </span>
-          <CheckSquare className="size-3" />
-        </div>
+        {subtasksTotal > 0 && (
+          <div className="flex items-center gap-1 text-muted-foreground">
+            <span className="text-[10px] font-medium">
+              {subtasksDone} / {subtasksTotal}
+            </span>
+            <CheckSquare className="size-3" />
+          </div>
+        )}
       </div>
 
+      {/* Task name */}
       <h4 className="text-sm font-semibold text-foreground leading-tight mb-4">
-        {task.title}
+        {task.name}
       </h4>
 
+      {/* Due date + assignee avatar */}
       <div className="flex items-center justify-between pt-3 border-t border-border">
         <div className="flex items-center gap-1.5 text-[10px] font-bold text-primary/80">
           <Calendar className="size-3" />
-          {task.dueLabel}
+          {formatDueLabel(task.due_date)}
         </div>
-        <Avatar className="size-6">
-          <AvatarImage src={task.assignee.avatarUrl} alt={task.assignee.name} />
-          <AvatarFallback className="text-[8px]">{getInitials(task.assignee.name)}</AvatarFallback>
-        </Avatar>
+        {assignee ? (
+          <Avatar className="size-6">
+            <AvatarImage src={assignee.avatar_url ?? undefined} alt={assignee.name} />
+            <AvatarFallback className="text-[8px]">{getInitials(assignee.name)}</AvatarFallback>
+          </Avatar>
+        ) : null}
       </div>
     </Card>
   )
 }
 
-// ── Kanban Column ─────────────────────────────────────────────────────────
+// ── Kanban Column ─────────────────────────────────────────────────
 
+/** Renders a single status column with a droppable area */
 function KanbanColumnView({
   column,
   isOver,
 }: {
-  column: KanbanColumn
+  column: BoardColumn
   isOver?: boolean
 }) {
-  // Register the column as a droppable container so DnD knows when pointer is over an empty column area
   const { setNodeRef: setDroppableRef, isOver: isDroppableOver } = useDroppable({ id: column.id })
 
   const showOver = Boolean(isOver || isDroppableOver)
 
   return (
-    <div ref={setDroppableRef} className={cn("flex flex-col min-w-70 max-w-[320px] w-full bg-card/50 rounded-xl border border-border/50", showOver ? "ring-2 ring-primary/30 shadow-lg" : "")}>
-      {/* Column Header */}
+    <div
+      ref={setDroppableRef}
+      className={cn(
+        "flex flex-col min-w-70 max-w-[320px] w-full bg-card/50 rounded-xl border border-border/50",
+        showOver ? "ring-2 ring-primary/30 shadow-lg" : "",
+      )}
+    >
+      {/* Column header */}
       <div className="p-4 flex items-center justify-between shrink-0 border-b border-border/50">
         <div className="flex items-center gap-2">
           <span className={cn("size-2 rounded-full", column.color)} />
@@ -146,30 +228,27 @@ function KanbanColumnView({
             <span className="opacity-50">({column.tasks.length})</span>
           </h3>
         </div>
-        <Button variant="ghost" size="icon-xs" className="text-muted-foreground hover:text-primary">
-          <Plus className="size-3.5" />
-        </Button>
       </div>
 
-      {/* Cards */}
-        <SortableContext items={column.tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
-              <div className="flex-1 overflow-y-auto p-3 space-y-3">
-                {column.tasks.map((task) => (
-                  <SortableTaskCard key={task.id} task={task} />
-                ))}
-              </div>
-        </SortableContext>
+      {/* Task cards */}
+      <SortableContext items={column.tasks.map((t) => String(t.id))} strategy={verticalListSortingStrategy}>
+        <div className="flex-1 overflow-y-auto p-3 space-y-3">
+          {column.tasks.map((task) => (
+            <SortableTaskCard key={task.id} task={task} />
+          ))}
+        </div>
+      </SortableContext>
     </div>
   )
 }
 
-// ── Board ─────────────────────────────────────────────────────────────────
+// ── Board ─────────────────────────────────────────────────────────
 
-export function KanbanBoard({ project, onBack }: KanbanBoardProps) {
-  // Group all columns under a default section
-  const defaultSections: KanbanSection[] = [{ id: "section-default", title: "", columns: project.kanbanColumns }]
-
-  const [sections, setSections] = useState<KanbanSection[]>(() => defaultSections)
+/** Main Kanban board — renders sections and status columns from API data */
+export function KanbanBoard({ kanban, onBack }: KanbanBoardProps) {
+  const [sections, setSections] = useState<BoardSection[]>(() =>
+    buildBoardSections(kanban.sections),
+  )
   const [activeTask, setActiveTask] = useState<KanbanTask | null>(null)
   const [hoveredColumn, setHoveredColumn] = useState<string | null>(null)
 
@@ -177,11 +256,12 @@ export function KanbanBoard({ project, onBack }: KanbanBoardProps) {
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
   )
 
+  // Find the task being dragged across all sections/columns
   const handleDragStart = useCallback((event: DragStartEvent) => {
-    const taskId = event.active.id as string
+    const taskId = String(event.active.id)
     for (const section of sections) {
       for (const col of section.columns) {
-        const found = col.tasks.find((t) => t.id === taskId)
+        const found = col.tasks.find((t) => String(t.id) === taskId)
         if (found) {
           setActiveTask(found)
           return
@@ -190,6 +270,7 @@ export function KanbanBoard({ project, onBack }: KanbanBoardProps) {
     }
   }, [sections])
 
+  // Track which column the dragged item is hovering over
   const handleDragOver = useCallback((event: DragOverEvent) => {
     const overId = event.over?.id as string | undefined
     if (!overId) {
@@ -197,19 +278,18 @@ export function KanbanBoard({ project, onBack }: KanbanBoardProps) {
       return
     }
 
-    // If overId matches a column id directly, set hoveredColumn
+    // Check if overId is a column
     for (const section of sections) {
-      const foundCol = section.columns.find((c) => c.id === overId)
-      if (foundCol) {
-        setHoveredColumn(foundCol.id)
+      if (section.columns.find((c) => c.id === overId)) {
+        setHoveredColumn(overId)
         return
       }
     }
 
-    // Otherwise if overId is a task id, find the parent column
+    // Otherwise find the parent column of the task being hovered
     for (const section of sections) {
       for (const col of section.columns) {
-        if (col.tasks.some((t) => t.id === overId)) {
+        if (col.tasks.some((t) => String(t.id) === overId)) {
           setHoveredColumn(col.id)
           return
         }
@@ -219,76 +299,76 @@ export function KanbanBoard({ project, onBack }: KanbanBoardProps) {
     setHoveredColumn(null)
   }, [sections])
 
+  // Move the task to the target column/position when dropped
   const handleDragEnd = useCallback((event: DragEndEvent) => {
     setActiveTask(null)
     setHoveredColumn(null)
     const { active, over } = event
     if (!over || active.id === over.id) return
 
-    const activeId = active.id as string
-    const overId = over.id as string
+    const activeId = String(active.id)
+    const overId = String(over.id)
 
-    setSections((prevSections) => {
-      // Find source section/column/task
-      let sourceSectionIdx = -1
-      let sourceColIdx = -1
-      let sourceTaskIdx = -1
-      for (let si = 0; si < prevSections.length; si++) {
-        for (let ci = 0; ci < prevSections[si].columns.length; ci++) {
-          const ti = prevSections[si].columns[ci].tasks.findIndex((t) => t.id === activeId)
-          if (ti !== -1) {
-            sourceSectionIdx = si
-            sourceColIdx = ci
-            sourceTaskIdx = ti
-            break
-          }
+    setSections((prev) => {
+      // Locate the source task
+      let srcSi = -1, srcCi = -1, srcTi = -1
+      for (let si = 0; si < prev.length; si++) {
+        for (let ci = 0; ci < prev[si].columns.length; ci++) {
+          const ti = prev[si].columns[ci].tasks.findIndex((t) => String(t.id) === activeId)
+          if (ti !== -1) { srcSi = si; srcCi = ci; srcTi = ti; break }
         }
-        if (sourceSectionIdx !== -1) break
+        if (srcSi !== -1) break
       }
-      if (sourceSectionIdx === -1) return prevSections
+      if (srcSi === -1) return prev
 
-      // Determine destination section/column/index
-      let destSectionIdx = -1
-      let destColIdx = -1
-      let destTaskIdx = -1
+      // Locate the destination — check columns first, then tasks
+      let dstSi = -1, dstCi = -1, dstTi = -1
 
-      // If overId is a column id -> append to that column
-      for (let si = 0; si < prevSections.length; si++) {
-        const ci = prevSections[si].columns.findIndex((c) => c.id === overId)
+      for (let si = 0; si < prev.length; si++) {
+        const ci = prev[si].columns.findIndex((c) => c.id === overId)
         if (ci !== -1) {
-          destSectionIdx = si
-          destColIdx = ci
-          destTaskIdx = prevSections[si].columns[ci].tasks.length
-          break
+          dstSi = si; dstCi = ci; dstTi = prev[si].columns[ci].tasks.length; break
         }
       }
 
-      // Otherwise if overId is a task id -> insert before that task in its column
-      if (destColIdx === -1) {
-        for (let si = 0; si < prevSections.length; si++) {
-          for (let ci = 0; ci < prevSections[si].columns.length; ci++) {
-            const ti = prevSections[si].columns[ci].tasks.findIndex((t) => t.id === overId)
-            if (ti !== -1) {
-              destSectionIdx = si
-              destColIdx = ci
-              destTaskIdx = ti
-              break
-            }
+      if (dstCi === -1) {
+        for (let si = 0; si < prev.length; si++) {
+          for (let ci = 0; ci < prev[si].columns.length; ci++) {
+            const ti = prev[si].columns[ci].tasks.findIndex((t) => String(t.id) === overId)
+            if (ti !== -1) { dstSi = si; dstCi = ci; dstTi = ti; break }
           }
-          if (destColIdx !== -1) break
+          if (dstCi !== -1) break
         }
       }
 
-      if (destColIdx === -1 || destSectionIdx === -1) return prevSections
+      if (dstCi === -1 || dstSi === -1) return prev
 
-      const next = prevSections.map((s) => ({ ...s, columns: s.columns.map((c) => ({ ...c, tasks: [...c.tasks] })) }))
+      // Clone sections and move the task
+      const next = prev.map((s) => ({
+        ...s,
+        columns: s.columns.map((c) => ({ ...c, tasks: [...c.tasks] })),
+      }))
 
-      const [movedTask] = next[sourceSectionIdx].columns[sourceColIdx].tasks.splice(sourceTaskIdx, 1)
-      next[destSectionIdx].columns[destColIdx].tasks.splice(destTaskIdx, 0, movedTask)
-
+      const [moved] = next[srcSi].columns[srcCi].tasks.splice(srcTi, 1)
+      next[dstSi].columns[dstCi].tasks.splice(dstTi, 0, moved)
       return next
     })
   }, [])
+
+  // Collect all unique assigned users to show in the members bar
+  const allMembers = (() => {
+    const seen = new Map<number, { id: number; name: string; avatar_url?: string | null }>()
+    for (const s of kanban.sections) {
+      for (const tasks of Object.values(s.tasks_by_status)) {
+        for (const t of tasks) {
+          for (const u of t.assigned_users) {
+            if (!seen.has(u.id)) seen.set(u.id, u)
+          }
+        }
+      }
+    }
+    return [...seen.values()]
+  })()
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-4 md:p-6 overflow-hidden">
@@ -299,36 +379,43 @@ export function KanbanBoard({ project, onBack }: KanbanBoardProps) {
         </Button>
         <div className="flex flex-col gap-0.5">
           <div className="flex items-center gap-3">
-            <h2 className="text-2xl font-bold tracking-tight">{project.name}</h2>
+            <h2 className="text-2xl font-bold tracking-tight">{kanban.project.name}</h2>
             <Badge variant="secondary" className="uppercase tracking-wider">Kanban</Badge>
           </div>
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-primary font-bold uppercase tracking-widest">
-              {project.category}
-            </span>
-          </div>
+          <span className="text-xs text-primary font-bold uppercase tracking-widest">
+            {kanban.project.status?.replace("_", " ")}
+          </span>
         </div>
       </div>
 
       {/* Members bar */}
-      <div className="flex items-center gap-3 shrink-0">
-        <div className="flex -space-x-2">
-          {project.members.slice(0, 4).map((m) => (
-            <Avatar key={m.id} className="size-8 border-2 border-background">
-              <AvatarImage src={m.avatarUrl} alt={m.name} />
-              <AvatarFallback className="text-[10px]">{getInitials(m.name)}</AvatarFallback>
-            </Avatar>
-          ))}
-          {project.members.length > 4 && (
-            <div className="size-8 rounded-full border-2 border-background bg-muted flex items-center justify-center text-[10px] font-bold text-muted-foreground">
-              +{project.members.length - 4}
-            </div>
-          )}
+      {allMembers.length > 0 && (
+        <div className="flex items-center gap-3 shrink-0">
+          <div className="flex -space-x-2">
+            {allMembers.slice(0, 4).map((m) => (
+              <Avatar key={m.id} className="size-8 border-2 border-background">
+                <AvatarImage src={m.avatar_url ?? undefined} alt={m.name} />
+                <AvatarFallback className="text-[10px]">{getInitials(m.name)}</AvatarFallback>
+              </Avatar>
+            ))}
+            {allMembers.length > 4 && (
+              <div className="size-8 rounded-full border-2 border-background bg-muted flex items-center justify-center text-[10px] font-bold text-muted-foreground">
+                +{allMembers.length - 4}
+              </div>
+            )}
+          </div>
+          <span className="text-xs text-muted-foreground">{allMembers.length} members</span>
         </div>
-        <span className="text-xs text-muted-foreground">{project.members.length} members</span>
-      </div>
+      )}
 
-      {/* Board */}
+      {/* Empty state when project has no sections */}
+      {sections.length === 0 && (
+        <div className="flex flex-1 items-center justify-center">
+          <p className="text-muted-foreground text-sm">No sections found for this project.</p>
+        </div>
+      )}
+
+      {/* Board with drag-and-drop */}
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
@@ -339,12 +426,14 @@ export function KanbanBoard({ project, onBack }: KanbanBoardProps) {
         <div className="flex-1 flex flex-col gap-6 overflow-y-auto pb-4 min-h-0">
           {sections.map((section) => (
             <section key={section.id} className="space-y-4">
-              {section.title ? (
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">{section.title}</h3>
-                </div>
-              ) : null}
+              {/* Section title */}
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                  {section.title}
+                </h3>
+              </div>
 
+              {/* Status columns */}
               <div className="flex gap-4 overflow-x-auto pb-4 min-h-0">
                 {section.columns.map((col) => (
                   <KanbanColumnView key={col.id} column={col} isOver={hoveredColumn === col.id} />
@@ -354,6 +443,7 @@ export function KanbanBoard({ project, onBack }: KanbanBoardProps) {
           ))}
         </div>
 
+        {/* Drag overlay — follows the cursor while dragging */}
         <DragOverlay>
           {activeTask && (
             <div className="w-72">
@@ -361,7 +451,7 @@ export function KanbanBoard({ project, onBack }: KanbanBoardProps) {
                 {hoveredColumn
                   ? `Move to: ${(() => {
                       for (const s of sections) {
-                        const c = s.columns.find((x: any) => x.id === hoveredColumn)
+                        const c = s.columns.find((x) => x.id === hoveredColumn)
                         if (c) return c.title
                       }
                       return hoveredColumn

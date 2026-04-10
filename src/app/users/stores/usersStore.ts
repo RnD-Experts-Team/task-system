@@ -62,8 +62,8 @@ interface UsersActions {
   fetchUsers: (page?: number) => Promise<void>
   /** Fetch a single user by id */
   getUser: (id: string) => Promise<void>
-  /** Create a new user via POST /users */
-  createUser: (payload: CreateUserPayload) => Promise<boolean>
+  /** Create a new user via POST /users — returns the created user on success */
+  createUser: (payload: CreateUserPayload) => Promise<User | null>
   /** Update an existing user via PUT /users/{id} */
   updateUser: (id: string, payload: UpdateUserPayload) => Promise<boolean>
   /** Delete a user via DELETE /users/{id} */
@@ -146,16 +146,16 @@ export const useUsersStore = create<UsersStore>()((set, get) => ({
     set({ submitting: true, submitError: null })
 
     try {
-      await usersService.create(payload)
+      const user = await usersService.create(payload)
       // Refresh the current page so the new user appears in the list
       const currentPage = get().pagination?.current_page ?? 1
       await get().fetchUsers(currentPage)
-      return true
+      return user
     } catch (err) {
       if (!isCancel(err)) {
         set({ submitError: extractErrorMessage(err, "Failed to create user.") })
       }
-      return false
+      return null
     } finally {
       set({ submitting: false })
     }

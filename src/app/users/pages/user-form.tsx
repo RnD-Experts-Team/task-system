@@ -7,6 +7,9 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { AlertCircle, ArrowLeft, Loader2 } from "lucide-react"
+import { RolesPermissionsSection } from "@/components/roles-permissions-section"
+import { RoleSection } from "@/components/role-section"
+import { useRolesPermissions } from "@/hooks/useRolesPermissions"
 import type { User } from "@/app/users/data"
 
 type UserFormProps = {
@@ -16,8 +19,10 @@ type UserFormProps = {
   submitting?: boolean
   /** Backend / network error message to display */
   submitError?: string | null
-  onSubmit: (data: UserFormData) => void
+  onSubmit: (data: UserFormData) => Promise<string | null>
   onCancel: () => void
+  /** Called after both personal-info save and roles/permissions sync succeed */
+  onSuccess?: () => void
 }
 
 // Data shape sent from the form to the parent
@@ -34,6 +39,7 @@ export function UserForm({
   submitError,
   onSubmit,
   onCancel,
+  onSuccess,
 }: UserFormProps) {
   const [name, setName] = useState(initialData?.name ?? "")
   const [email, setEmail] = useState(initialData?.email ?? "")
@@ -45,6 +51,33 @@ export function UserForm({
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   // avatarFile state kept for future avatar upload functionality
   const [_avatarFile, setAvatarFile] = useState<File | null>(null)
+
+  // ── Roles & Permissions ─────────────────────────────────────────────────────
+  const {
+    availableRoles,
+    availablePermissions,
+    currentRoles,
+    currentPermissions,
+    inheritedPermissions,
+    isDirty: rolesPermsDirty,
+    loading: rolesPermsLoading,
+    error: rolesPermsError,
+    syncing,
+    setCurrentRoles,
+    toggleRole,
+    togglePermission,
+    saveChanges,
+    fetchAvailable,
+  } = useRolesPermissions({ userId: initialData?.id })
+
+  // Derive the single selected role for the RoleSection picker
+  const selectedRole = currentRoles[0] ?? ""
+
+  function handleSelectRole(roleName: string) {
+    setCurrentRoles(roleName ? [roleName] : [])
+  }
+
+  const isBusy = submitting || syncing
 
   // Reset preview when switching between create ↔ edit
   useEffect(() => {
@@ -75,7 +108,19 @@ export function UserForm({
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!validate()) return
-    onSubmit({ name, email, password })
+
+    // Two-phase submit: 1) save personal info, 2) sync roles/permissions
+    void (async () => {
+      const userId = await onSubmit({ name, email, password })
+      if (!userId) return
+
+      if (rolesPermsDirty) {
+        const syncOk = await saveChanges(userId)
+        if (!syncOk) return
+      }
+
+      onSuccess?.()
+    })()
   }
 
   // ── Avatar helpers ──────────────────────────────────────────────────────────
@@ -107,7 +152,7 @@ export function UserForm({
         <CardContent className="p-6 md:p-8">
           {/* Header */}
           <div className="flex items-center gap-4 mb-6">
-            <Button variant="ghost" size="icon-lg" onClick={onCancel} disabled={submitting}>
+            <Button variant="ghost" size="icon-lg" onClick={onCancel} disabled={isBusy}>
               <ArrowLeft />
             </Button>
             <div className="flex flex-col gap-1">
@@ -155,7 +200,7 @@ export function UserForm({
                       onChange={(e) => setName(e.target.value)}
                       placeholder="Enter full name"
                       className="h-12 text-sm"
-                      disabled={submitting}
+                      disabled={isBusy}
                     />
                     {errors.name && (
                       <p className="text-sm text-destructive mt-1">{errors.name}</p>
@@ -171,7 +216,7 @@ export function UserForm({
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="Enter email address"
                       className="h-12 text-sm"
-                      disabled={submitting}
+                      disabled={isBusy}
                     />
                     {errors.email && (
                       <p className="text-sm text-destructive mt-1">{errors.email}</p>
@@ -189,7 +234,7 @@ export function UserForm({
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder={mode === "create" ? "Enter password" : "New password (optional)"}
                       className="h-12 text-sm"
-                      disabled={submitting}
+                      disabled={isBusy}
                       autoComplete="new-password"
                     />
                     {errors.password && (
@@ -214,10 +259,10 @@ export function UserForm({
                         onChange={handleFileChange}
                         aria-label="Upload avatar"
                       />
-                      <Button type="button" size="sm" onClick={() => fileInputRef.current?.click()} disabled={submitting}>
+                      <Button type="button" size="sm" onClick={() => fileInputRef.current?.click()} disabled={isBusy}>
                         Upload
                       </Button>
-                      <Button type="button" size="sm" variant="ghost" onClick={handleClearAvatar} disabled={submitting}>
+                      <Button type="button" size="sm" variant="ghost" onClick={handleClearAvatar} disabled={isBusy}>
                         Clear
                       </Button>
                     </div>
@@ -229,13 +274,42 @@ export function UserForm({
 
             <Separator />
 
+            {/* Role (primary role selector + permissions preview) */}
+            <RoleSection
+              availableRoles={availableRoles}
+              selectedRole={selectedRole}
+              onSelectRole={handleSelectRole}
+              disabled={isBusy}
+              loading={rolesPermsLoading}
+            />
+
+            <Separator />
+
+            {/* Direct Permissions — roles managed above via RoleSection */}
+            <RolesPermissionsSection
+              availableRoles={availableRoles}
+              availablePermissions={availablePermissions}
+              selectedRoles={currentRoles}
+              selectedPermissions={currentPermissions}
+              inheritedPermissions={inheritedPermissions}
+              onToggleRole={toggleRole}
+              onTogglePermission={togglePermission}
+              disabled={isBusy}
+              loading={rolesPermsLoading}
+              error={rolesPermsError}
+              onRetry={fetchAvailable}
+              hideRoles
+            />
+
+            <Separator />
+
             {/* Actions */}
             <div className="flex items-center justify-end gap-3">
-              <Button type="button" variant="ghost" size="lg" onClick={onCancel} disabled={submitting}>
+              <Button type="button" variant="ghost" size="lg" onClick={onCancel} disabled={isBusy}>
                 Discard
               </Button>
-              <Button type="submit" size="lg" disabled={submitting}>
-                {submitting && <Loader2 className="size-4 animate-spin" />}
+              <Button type="submit" size="lg" disabled={isBusy}>
+                {isBusy && <Loader2 className="size-4 animate-spin" />}
                 {mode === "create" ? "Create User" : "Save Changes"}
               </Button>
             </div>

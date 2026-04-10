@@ -63,7 +63,7 @@ export function useUsers(initialPage = 1) {
     fetchUsers,
     /** Fetch a single user by id */
     getUser,
-    /** Create a new user — returns true on success */
+    /** Create a new user — returns the created user on success, null on failure */
     createUser,
     /** Update a user — returns true on success */
     updateUser,

@@ -1,108 +1,115 @@
-import { useState, useMemo } from "react"
+import { useState, useMemo, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
-import { Plus, Search, LayoutList, LayoutGrid } from "lucide-react"
+import { Plus, Search, LayoutList, LayoutGrid, AlertCircle, Loader2 } from "lucide-react"
 import { Pagination } from "@/components/pagination"
 import { PaginationInfo } from "@/components/pagination-info"
-import { usePagination } from "@/hooks/use-pagination"
 import { RolesTableView } from "@/app/roles/pages/roles-table-view"
 import { RoleGridView } from "@/app/roles/pages/role-grid-view"
 import { RoleFormSheet } from "@/app/roles/pages/role-form-sheet"
 import { RoleDetailSheet } from "@/app/roles/pages/role-detail-sheet"
 import { ConfirmDeleteRoleDialog } from "@/app/roles/pages/confirm-delete-role-dialog"
-import { roles as initialRoles } from "@/app/roles/data"
-import type { Role, RoleFormData } from "@/app/roles/data"
+import { useRoles, useCreateRole, useUpdateRole, useDeleteRole } from "@/app/roles/hooks/useRoles"
+import { useRolesStore } from "@/app/roles/stores/rolesStore"
+import type { Role } from "@/types"
+import type { RoleFormData } from "@/app/roles/types"
 
 type ViewMode = "table" | "grid"
 
 export default function RolesPage() {
-  const [roleList, setRoleList] = useState<Role[]>(initialRoles)
+  // ── Store data ──
+  const [page, setPage] = useState(1)
+  const {
+    roles,
+    pagination,
+    loading,
+    error,
+    clearError,
+    availablePermissions,
+    permissionsLoading,
+    guardOptions,
+  } = useRoles(page)
+  const { createRole, submitting: creating } = useCreateRole()
+  const { updateRole, submitting: updating } = useUpdateRole()
+  const { deleteRole, submitting: deleting } = useDeleteRole()
+  const getRole = useRolesStore((s) => s.getRole)
+  const selectedRole = useRolesStore((s) => s.selectedRole)
+  const selectedLoading = useRolesStore((s) => s.selectedLoading)
+
+  // ── Local UI state ──
   const [search, setSearch] = useState("")
   const [view, setView] = useState<ViewMode>("table")
-
-  // Form sheet state
   const [formOpen, setFormOpen] = useState(false)
   const [formMode, setFormMode] = useState<"create" | "edit">("create")
-  const [selectedRole, setSelectedRole] = useState<Role | null>(null)
-
-  // Detail sheet state
+  const [editingRole, setEditingRole] = useState<Role | null>(null)
   const [detailOpen, setDetailOpen] = useState(false)
-  const [detailRole, setDetailRole] = useState<Role | null>(null)
-
-  // Delete dialog state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const [deleteRole, setDeleteRole] = useState<Role | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<Role | null>(null)
 
-  // Next ID counter (mock)
-  const [nextId, setNextId] = useState(initialRoles.length + 1)
+  const submitting = creating || updating || deleting
 
+  // Client-side search filter
   const filtered = useMemo(() => {
-    if (!search.trim()) return roleList
+    if (!search.trim()) return roles
     const q = search.toLowerCase()
-    return roleList.filter(
+    return roles.filter(
       (r) =>
         r.name.toLowerCase().includes(q) ||
-        r.guardName.toLowerCase().includes(q) ||
-        r.permissions.some((p) => p.toLowerCase().includes(q))
+        r.guard_name.toLowerCase().includes(q)
     )
-  }, [search, roleList])
+  }, [search, roles])
 
-  const { page, totalPages, paged, startItem, endItem, totalItems, setPage, resetPage } = usePagination(filtered)
+  // ── Handlers ──
 
-  function handleCreate() {
-    setSelectedRole(null)
+  const handleCreate = useCallback(() => {
+    setEditingRole(null)
     setFormMode("create")
     setFormOpen(true)
-  }
+  }, [])
 
-  function handleEdit(role: Role) {
-    setSelectedRole(role)
+  const handleEdit = useCallback((role: Role) => {
+    setEditingRole(role)
     setFormMode("edit")
     setFormOpen(true)
     setDetailOpen(false)
-  }
+  }, [])
 
-  function handleDelete(role: Role) {
-    setDeleteRole(role)
+  const handleDelete = useCallback((role: Role) => {
+    setDeleteTarget(role)
     setDeleteDialogOpen(true)
-  }
+  }, [])
 
-  function handleConfirmDelete() {
-    if (deleteRole) {
-      setRoleList((prev) => prev.filter((r) => r.id !== deleteRole.id))
+  const handleConfirmDelete = useCallback(async () => {
+    if (!deleteTarget) return
+    const ok = await deleteRole(deleteTarget.id)
+    if (ok) {
+      setDeleteDialogOpen(false)
+      setDeleteTarget(null)
     }
-    setDeleteDialogOpen(false)
-    setDeleteRole(null)
-  }
+  }, [deleteTarget, deleteRole])
 
-  function handleSelect(role: Role) {
-    setDetailRole(role)
+  const handleSelect = useCallback((role: Role) => {
+    getRole(role.id)
     setDetailOpen(true)
-  }
+  }, [getRole])
 
-  function handleFormSubmit(data: RoleFormData) {
+  const handleFormSubmit = useCallback(async (data: RoleFormData) => {
     if (formMode === "create") {
-      const newRole: Role = {
-        id: String(nextId),
-        ...data,
-        createdAt: new Date().toLocaleDateString("en-US", {
-          month: "short",
-          day: "numeric",
-          year: "numeric",
-        }),
-      }
-      setRoleList((prev) => [...prev, newRole])
-      setNextId((n) => n + 1)
-    } else if (selectedRole) {
-      setRoleList((prev) =>
-        prev.map((r) =>
-          r.id === selectedRole.id ? { ...r, ...data } : r
-        )
-      )
+      const result = await createRole(data)
+      if (result) setFormOpen(false)
+    } else if (editingRole) {
+      const ok = await updateRole(editingRole.id, data)
+      if (ok) setFormOpen(false)
     }
-  }
+  }, [formMode, editingRole, createRole, updateRole])
+
+  // ── Pagination ──
+  const totalPages = pagination?.last_page ?? 1
+  const startItem = pagination?.from ?? 0
+  const endItem = pagination?.to ?? 0
+  const totalItems = pagination?.total ?? 0
 
   return (
     <>
@@ -113,7 +120,7 @@ export default function RolesPage() {
             <div className="flex items-center gap-3">
               <h2 className="text-3xl font-bold tracking-tight">Roles</h2>
               <Badge variant="secondary" className="uppercase tracking-wider">
-                {filtered.length} {filtered.length === 1 ? "Role" : "Roles"}
+                {totalItems} {totalItems === 1 ? "Role" : "Roles"}
               </Badge>
             </div>
             <p className="text-sm text-muted-foreground max-w-md">
@@ -130,17 +137,25 @@ export default function RolesPage() {
           </Button>
         </div>
 
+        {/* Error alert */}
+        {error && (
+          <div className="flex items-center gap-3 rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+            <AlertCircle className="size-4 shrink-0" />
+            <span className="flex-1">{error}</span>
+            <Button variant="outline" size="sm" onClick={clearError}>
+              Dismiss
+            </Button>
+          </div>
+        )}
+
         {/* Controls */}
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="relative flex-1 max-w-sm">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
             <Input
-              placeholder="Filter by name, guard or permission..."
+              placeholder="Filter by name or guard..."
               value={search}
-              onChange={(e) => {
-                setSearch(e.target.value)
-                resetPage()
-              }}
+              onChange={(e) => setSearch(e.target.value)}
               className="pl-8 h-10 text-sm"
             />
           </div>
@@ -164,21 +179,30 @@ export default function RolesPage() {
           </ToggleGroup>
         </div>
 
+        {/* Loading state */}
+        {loading && (
+          <div className="flex items-center justify-center py-16">
+            <Loader2 className="size-6 animate-spin text-muted-foreground" />
+          </div>
+        )}
+
         {/* Content (Table / Grid) */}
-        {view === "table" ? (
-          <RolesTableView
-            roles={paged}
-            onEdit={handleEdit}
-            onDelete={handleDelete}
-            onSelect={handleSelect}
-          />
-        ) : (
-          <RoleGridView
-            roles={paged}
-            onSelect={handleSelect}
-            onEdit={handleEdit}
-            onDelete={handleDelete}
-          />
+        {!loading && (
+          view === "table" ? (
+            <RolesTableView
+              roles={filtered}
+              onEdit={handleEdit}
+              onDelete={handleDelete}
+              onSelect={handleSelect}
+            />
+          ) : (
+            <RoleGridView
+              roles={filtered}
+              onSelect={handleSelect}
+              onEdit={handleEdit}
+              onDelete={handleDelete}
+            />
+          )
         )}
 
         {/* Pagination */}
@@ -197,23 +221,28 @@ export default function RolesPage() {
       {/* Role Form Sheet */}
       <RoleFormSheet
         mode={formMode}
-        role={selectedRole}
+        role={editingRole}
         open={formOpen}
         onOpenChange={setFormOpen}
         onSubmit={handleFormSubmit}
+        submitting={submitting}
+        permissionsCatalog={availablePermissions}
+        guardOptions={guardOptions}
+        permissionsLoading={permissionsLoading}
       />
 
       {/* Role Detail Sheet */}
       <RoleDetailSheet
-        role={detailRole}
+        role={selectedRole}
         open={detailOpen}
         onOpenChange={setDetailOpen}
         onEdit={handleEdit}
+        loading={selectedLoading}
       />
 
       {/* Confirm Delete Dialog */}
       <ConfirmDeleteRoleDialog
-        role={deleteRole}
+        role={deleteTarget}
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
         onConfirm={handleConfirmDelete}

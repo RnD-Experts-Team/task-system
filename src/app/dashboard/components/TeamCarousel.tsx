@@ -1,18 +1,13 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef, memo } from "react"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { isCancel } from "axios"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Mail, ChevronLeft, ChevronRight } from "lucide-react"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Mail, ChevronLeft, ChevronRight, RefreshCw, Users } from "lucide-react"
 import { cn } from "@/lib/utils"
-
-// Demo data
-const TEAM_MEMBERS = [
-  { id: 1, name: "Elena Wright", role: "Lead Designer", email: "elena.w@company.io", initials: "EW", department: "Design" },
-  { id: 2, name: "Marcus Chen", role: "Senior Developer", email: "m.chen@company.io", initials: "MC", department: "Engineering" },
-  { id: 3, name: "Sarah Jenkins", role: "Project Manager", email: "s.jenkins@company.io", initials: "SJ", department: "Operations" },
-  { id: 4, name: "Alex Kim", role: "DevOps Engineer", email: "a.kim@company.io", initials: "AK", department: "Engineering" },
-  { id: 5, name: "Priya Sharma", role: "QA Lead", email: "p.sharma@company.io", initials: "PS", department: "Quality" },
-]
+import { usersService } from "@/services/usersService"
+import type { User } from "@/app/users/data"
 
 const STATUS_COLORS = {
   online: "bg-emerald-500",
@@ -20,14 +15,80 @@ const STATUS_COLORS = {
   offline: "bg-zinc-500",
 } as const
 
-type ExtendedMember = (typeof TEAM_MEMBERS)[number] & { _key: string; status?: keyof typeof STATUS_COLORS }
+type MemberStatus = keyof typeof STATUS_COLORS
 
-const MEMBER_STATUSES: Record<number, ExtendedMember["status"]> = {
-  1: "online",
-  2: "online",
-  3: "away",
-  4: "online",
-  5: "offline",
+type TeamMember = {
+  id: string
+  name: string
+  role: string
+  email: string
+  initials: string
+  department: string
+  avatarUrl: string | null
+  status: MemberStatus
+}
+
+type ExtendedMember = TeamMember & { _key: string }
+
+const FALLBACK_ROLE = "Team Member"
+const CYCLIC_STATUSES: MemberStatus[] = ["online", "away", "offline"]
+
+function getInitials(name: string): string {
+  return name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("") || "U"
+}
+
+function getDepartmentFromRole(role: string): string {
+  if (!role || role === "—") return "General"
+  const [firstWord] = role.split(" ")
+  return firstWord || "General"
+}
+
+function mapUsersToTeamMembers(users: User[]): TeamMember[] {
+  return users.map((user, index) => {
+    const normalizedRole = user.role && user.role !== "—" ? user.role : FALLBACK_ROLE
+    return {
+      id: user.id,
+      name: user.name,
+      role: normalizedRole,
+      email: user.email,
+      initials: getInitials(user.name),
+      department: getDepartmentFromRole(normalizedRole),
+      avatarUrl: user.avatarUrl,
+      status: CYCLIC_STATUSES[index % CYCLIC_STATUSES.length],
+    }
+  })
+}
+
+function TeamCarouselLoading() {
+  return (
+    <section aria-label="Active team members" className="space-y-3">
+      <div className="flex items-center justify-between">
+        <h2 className="font-heading text-xl font-bold tracking-tight">Active Team Members</h2>
+        <Skeleton className="h-4 w-14" />
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {[0, 1, 2].map((idx) => (
+          <div key={idx} className="glass-panel rounded-2xl border p-4 space-y-3">
+            <div className="flex items-center gap-3">
+              <Skeleton className="size-14 rounded-full" />
+              <div className="space-y-2 min-w-0 flex-1">
+                <Skeleton className="h-4 w-2/3" />
+                <Skeleton className="h-3 w-1/2" />
+              </div>
+            </div>
+            <Skeleton className="h-5 w-20 rounded-full" />
+            <Skeleton className="h-3 w-4/5" />
+          </div>
+        ))}
+      </div>
+    </section>
+  )
 }
 
 function useVisibleCards(): number {
@@ -54,10 +115,14 @@ function useVisibleCards(): number {
 }
 
 function usePrefersReducedMotion(): boolean {
-  const [reduced, setReduced] = useState(false)
+  const [reduced, setReduced] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false
+    return window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  })
+
   useEffect(() => {
+    if (typeof window === "undefined") return
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)")
-    setReduced(mq.matches)
     const handler = (e: MediaQueryListEvent) => setReduced(e.matches)
     mq.addEventListener("change", handler)
     return () => mq.removeEventListener("change", handler)
@@ -78,18 +143,16 @@ const TeamCard = memo(function TeamCard({ member, isActive }: { member: Extended
     >
       <div className="relative">
         <Avatar className="size-14 ring-2 ring-primary/20">
+          {member.avatarUrl ? <AvatarImage src={member.avatarUrl} alt={member.name} /> : null}
           <AvatarFallback className="bg-primary/10 text-base font-bold text-primary">{member.initials}</AvatarFallback>
         </Avatar>
-        {member.status && (
-          <span
-            className={cn(
-              "absolute bottom-0.5 right-0.5 size-3 rounded-full border-2 border-background",
-              // @ts-ignore color class
-              STATUS_COLORS[member.status],
-            )}
-            aria-label={member.status}
-          />
-        )}
+        <span
+          className={cn(
+            "absolute bottom-0.5 right-0.5 size-3 rounded-full border-2 border-background",
+            STATUS_COLORS[member.status],
+          )}
+          aria-label={member.status}
+        />
       </div>
 
       <div className="space-y-0.5">
@@ -128,23 +191,54 @@ const CarouselControl = memo(function CarouselControl({ direction, onClick, disa
 const AUTOPLAY_INTERVAL_MS = 3500
 
 export default function TeamCarousel() {
+  const [members, setMembers] = useState<TeamMember[]>([])
+  const [loading, setLoading] = useState<boolean>(true)
+  const [error, setError] = useState<string | null>(null)
+
+  // Fetch the first users page and map it for the carousel cards.
+  const fetchTeamMembers = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+
+    try {
+      const { users } = await usersService.getAll(1)
+      setMembers(mapUsersToTeamMembers(users))
+    } catch (err) {
+      // Ignore canceled requests; show other failures in the UI.
+      if (!isCancel(err)) {
+        setError("Failed to load users. Please try again.")
+      }
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchTeamMembers()
+  }, [fetchTeamMembers])
+
   const visibleCards = useVisibleCards()
   const prefersReducedMotion = usePrefersReducedMotion()
 
-  const CLONE_COUNT = visibleCards
-  const REAL_COUNT = TEAM_MEMBERS.length
+  const hasMembers = members.length > 0
+  const REAL_COUNT = members.length
+  const VISIBLE_COUNT = Math.max(1, Math.min(visibleCards, Math.max(REAL_COUNT, 1)))
+  const CLONE_COUNT = VISIBLE_COUNT
+  const canSlide = REAL_COUNT > 1
 
   const extended = useMemo<ExtendedMember[]>(
-    () => [
-      ...TEAM_MEMBERS.slice(-CLONE_COUNT).map((m, i) => ({ ...m, _key: `pre-${i}-${m.id}`, status: MEMBER_STATUSES[m.id] })),
-      ...TEAM_MEMBERS.map((m) => ({ ...m, _key: `real-${m.id}`, status: MEMBER_STATUSES[m.id] })),
-      ...TEAM_MEMBERS.slice(0, CLONE_COUNT).map((m, i) => ({ ...m, _key: `post-${i}-${m.id}`, status: MEMBER_STATUSES[m.id] })),
-    ],
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [CLONE_COUNT],
+    () => {
+      if (members.length === 0) return []
+      return [
+        ...members.slice(-CLONE_COUNT).map((m, i) => ({ ...m, _key: `pre-${i}-${m.id}` })),
+        ...members.map((m) => ({ ...m, _key: `real-${m.id}` })),
+        ...members.slice(0, CLONE_COUNT).map((m, i) => ({ ...m, _key: `post-${i}-${m.id}` })),
+      ]
+    },
+    [members, CLONE_COUNT],
   )
 
-  const TOTAL = extended.length
+  const TOTAL = Math.max(1, extended.length)
 
   const [currentIndex, setCurrentIndex] = useState<number>(CLONE_COUNT)
   const [isAnimating, setIsAnimating] = useState<boolean>(false)
@@ -166,12 +260,13 @@ export default function TeamCarousel() {
   }, [CLONE_COUNT])
 
   const navigate = useCallback((dir: 1 | -1) => {
-    if (isAnimating) return
+    if (isAnimating || !canSlide) return
     setIsAnimating(true)
     setCurrentIndex((prev) => prev + dir)
-  }, [isAnimating])
+  }, [isAnimating, canSlide])
 
   const handleTransitionEnd = useCallback((e: React.TransitionEvent<HTMLDivElement>) => {
+    if (!canSlide) return
     if (e.target !== e.currentTarget) return
     setIsAnimating(false)
     setCurrentIndex((prev) => {
@@ -179,24 +274,25 @@ export default function TeamCarousel() {
       if (prev >= CLONE_COUNT + REAL_COUNT) return prev - REAL_COUNT
       return prev
     })
-  }, [CLONE_COUNT, REAL_COUNT])
+  }, [canSlide, CLONE_COUNT, REAL_COUNT])
 
   useEffect(() => {
-    if (isHovered || prefersReducedMotion) {
+    if (!canSlide || isHovered || prefersReducedMotion) {
       clearInterval(autoPlayTimerRef.current)
       return
     }
     autoPlayTimerRef.current = setInterval(() => navigate(1), AUTOPLAY_INTERVAL_MS)
     return () => clearInterval(autoPlayTimerRef.current)
-  }, [isHovered, prefersReducedMotion, navigate])
+  }, [canSlide, isHovered, prefersReducedMotion, navigate])
 
   const onPointerStart = useCallback((clientX: number) => {
+    if (!canSlide) return
     isDraggingRef.current = true
     setIsDragging(true)
     dragStartXRef.current = clientX
     dragOffsetRef.current = 0
     setDragOffset(0)
-  }, [])
+  }, [canSlide])
 
   const onPointerMove = useCallback((clientX: number) => {
     if (!isDraggingRef.current) return
@@ -214,11 +310,11 @@ export default function TeamCarousel() {
     setDragOffset(0)
 
     const containerWidth = containerRef.current?.clientWidth ?? 300
-    const snapThreshold = (containerWidth / visibleCards) * 0.25
+    const snapThreshold = (containerWidth / VISIBLE_COUNT) * 0.25
     if (Math.abs(offset) > snapThreshold) {
       navigate(offset < 0 ? 1 : -1)
     }
-  }, [navigate, visibleCards])
+  }, [navigate, VISIBLE_COUNT])
 
   useEffect(() => {
     const onMM = (e: MouseEvent) => onPointerMove(e.clientX)
@@ -238,33 +334,74 @@ export default function TeamCarousel() {
   }, [onPointerMove, onPointerEnd])
 
   const containerWidth = containerRef.current?.clientWidth ?? 0
-  const cardWidthPx = containerWidth > 0 ? containerWidth / visibleCards : 1
+  const cardWidthPx = containerWidth > 0 ? containerWidth / VISIBLE_COUNT : 1
   const dragCards = dragOffset / cardWidthPx
   const translatePct = -((currentIndex - dragCards) / TOTAL) * 100
 
   // Show the middle visible card as active instead of the left-most one.
-  const centerOffset = Math.floor(visibleCards / 2)
+  const centerOffset = Math.floor(VISIBLE_COUNT / 2)
   const activeIndex = currentIndex + centerOffset
 
   const trackStyle = {
-    width: `${(TOTAL / visibleCards) * 100}%`,
+    width: `${(TOTAL / VISIBLE_COUNT) * 100}%`,
     transform: `translate3d(${translatePct}%, 0, 0)`,
     transition: isAnimating && !isDraggingRef.current && !prefersReducedMotion ? "transform 0.38s cubic-bezier(0.25, 0.46, 0.45, 0.94)" : "none",
     willChange: "transform",
   }
 
-  const dotIndex = ((activeIndex - CLONE_COUNT) % REAL_COUNT + REAL_COUNT) % REAL_COUNT
+  const dotIndex = REAL_COUNT > 0
+    ? ((activeIndex - CLONE_COUNT) % REAL_COUNT + REAL_COUNT) % REAL_COUNT
+    : 0
+
+  if (loading) {
+    return <TeamCarouselLoading />
+  }
+
+  if (error) {
+    return (
+      <section aria-label="Active team members" className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="font-heading text-xl font-bold tracking-tight">Active Team Members</h2>
+        </div>
+
+        <div className="glass-panel rounded-2xl border p-6 text-center space-y-4">
+          <p className="text-sm text-destructive">{error}</p>
+          <Button variant="outline" size="sm" className="gap-2" onClick={fetchTeamMembers}>
+            <RefreshCw className="size-4" />
+            Retry
+          </Button>
+        </div>
+      </section>
+    )
+  }
+
+  if (!hasMembers) {
+    return (
+      <section aria-label="Active team members" className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="font-heading text-xl font-bold tracking-tight">Active Team Members</h2>
+        </div>
+
+        <div className="glass-panel rounded-2xl border p-6 text-center">
+          <Users className="mx-auto size-5 text-muted-foreground" />
+          <p className="mt-3 text-sm text-muted-foreground">No users available yet.</p>
+        </div>
+      </section>
+    )
+  }
 
   return (
     <section aria-label="Active team members" className="space-y-3">
       <div className="flex items-center justify-between">
         <h2 className="font-heading text-xl font-bold tracking-tight">Active Team Members</h2>
-        <Button variant="ghost" size="sm" className="h-auto p-0 text-sm font-semibold text-primary hover:text-primary/80">View All</Button>
+        <Button variant="ghost" size="sm" className="h-auto p-0 text-sm font-semibold text-primary hover:text-primary/80" disabled>
+          {REAL_COUNT} Members
+        </Button>
       </div>
 
       <div className="flex items-center gap-2">
         <div className="hidden sm:flex">
-          <CarouselControl direction="prev" onClick={() => navigate(-1)} disabled={isAnimating} />
+          <CarouselControl direction="prev" onClick={() => navigate(-1)} disabled={isAnimating || !canSlide} />
         </div>
 
         <div
@@ -279,7 +416,11 @@ export default function TeamCarousel() {
           onMouseLeave={() => { setIsHovered(false); if (isDraggingRef.current) onPointerEnd() }}
           onMouseDown={(e) => { e.preventDefault(); onPointerStart(e.clientX) }}
           onTouchStart={(e) => onPointerStart(e.touches[0].clientX)}
-          onKeyDown={(e) => { if (e.key === "ArrowLeft") { e.preventDefault(); navigate(-1) } if (e.key === "ArrowRight") { e.preventDefault(); navigate(1) } }}
+          onKeyDown={(e) => {
+            if (!canSlide) return
+            if (e.key === "ArrowLeft") { e.preventDefault(); navigate(-1) }
+            if (e.key === "ArrowRight") { e.preventDefault(); navigate(1) }
+          }}
           tabIndex={0}
           role="region"
           aria-roledescription="carousel"
@@ -295,18 +436,23 @@ export default function TeamCarousel() {
         </div>
 
         <div className="hidden sm:flex">
-          <CarouselControl direction="next" onClick={() => navigate(1)} disabled={isAnimating} />
+          <CarouselControl direction="next" onClick={() => navigate(1)} disabled={isAnimating || !canSlide} />
         </div>
       </div>
 
       <div className="flex justify-center gap-1.5" role="tablist" aria-label="Carousel pagination">
-        {TEAM_MEMBERS.map((member, i) => (
+        {members.map((member, i) => (
           <button
-            key={i}
+            key={member.id}
             role="tab"
             aria-selected={i === dotIndex}
             aria-label={`Go to ${member.name}`}
-            onClick={() => { if (isAnimating) return; setIsAnimating(true); setCurrentIndex(CLONE_COUNT + i - centerOffset) }}
+            onClick={() => {
+              if (isAnimating || !canSlide) return
+              setIsAnimating(true)
+              setCurrentIndex(CLONE_COUNT + i - centerOffset)
+            }}
+            disabled={!canSlide}
             className={cn("h-1 rounded-full transition-all duration-300", i === dotIndex ? "w-5 bg-primary" : "w-1 bg-border hover:bg-primary/40")}
           />
         ))}

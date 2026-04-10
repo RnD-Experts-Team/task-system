@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { MoreHorizontal, Pencil, Trash2, Calendar } from "lucide-react"
 import { useTilt } from "@/hooks/use-tilt"
-import type { Role } from "@/app/roles/data"
+import type { Role } from "@/types"
 
 type RoleCardProps = {
   role: Role
@@ -27,13 +27,11 @@ export function RoleCard({ role, onSelect, onEdit, onDelete }: RoleCardProps) {
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-2 flex-wrap">
             <Badge variant="outline" className="text-[10px]">
-              {role.guardName}
+              {role.guard_name}
             </Badge>
-            {role.permissions.map((p) => (
-              <Badge key={p} variant="secondary" className="text-[10px] capitalize">
-                {p}
-              </Badge>
-            ))}
+            <Badge variant="secondary" className="text-[10px]">
+              {role.permissions.length} perm{role.permissions.length !== 1 ? "s" : ""}
+            </Badge>
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -68,7 +66,7 @@ export function RoleCard({ role, onSelect, onEdit, onDelete }: RoleCardProps) {
         <div className="flex items-center justify-between">
           <span className="text-xs text-muted-foreground flex items-center gap-1">
             <Calendar className="size-3" />
-            {role.createdAt}
+            {new Date(role.created_at).toLocaleDateString()}
           </span>
         </div>
       </CardContent>

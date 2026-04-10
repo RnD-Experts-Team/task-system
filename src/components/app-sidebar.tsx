@@ -23,6 +23,7 @@ import {
   Shield,
   Command,
 } from "lucide-react"
+import { usePermissions } from "@/hooks/usePermissions";
 const data = {
   user: {
     name: "Admin",
@@ -39,6 +40,7 @@ const data = {
       title: "Users",
       url: "/users",
       icon: Users,
+      
     },
     {
       title: "Projects",
@@ -91,6 +93,11 @@ const data = {
 }
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+  const { hasRole } = usePermissions();
+  const isAdmin = hasRole("admin");
+
+  const navMainItems = data.navMain.filter((item) => item.url !== "/users" || isAdmin);
+
   return (
     <Sidebar collapsible="offcanvas" {...props}>
       {/* Header: Logo + Project Title */}
@@ -116,7 +123,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
       {/* Main Navigation Content */}
       <SidebarContent className="px-2 py-4">
-        <NavMain items={data.navMain} />
+        <NavMain items={navMainItems} />
         <NavCollapsible items={data.navCollapsible} />
       </SidebarContent>
 

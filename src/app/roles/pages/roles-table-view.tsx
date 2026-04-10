@@ -9,7 +9,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Pencil, Trash2, Shield } from "lucide-react"
-import type { Role, Permission } from "@/app/roles/data"
+import type { Role } from "@/types"
 
 type RolesTableViewProps = {
   roles: Role[]
@@ -18,19 +18,7 @@ type RolesTableViewProps = {
   onSelect: (role: Role) => void
 }
 
-const permissionVariant: Record<Permission, "default" | "secondary" | "destructive" | "outline"> = {
-  create: "default",
-  read: "secondary",
-  update: "outline",
-  delete: "destructive",
-}
 
-const permissionLabel: Record<Permission, string> = {
-  create: "Create",
-  read: "Read",
-  update: "Update",
-  delete: "Delete",
-}
 
 export function RolesTableView({
   roles,
@@ -60,7 +48,7 @@ export function RolesTableView({
         <TableRow>
           <TableHead>Role Name</TableHead>
           <TableHead>Permissions</TableHead>
-          <TableHead>Guard Name</TableHead>
+          <TableHead>Guard</TableHead>
           <TableHead>Created</TableHead>
           <TableHead className="text-right">Actions</TableHead>
         </TableRow>
@@ -83,25 +71,17 @@ export function RolesTableView({
               </div>
             </TableCell>
             <TableCell className="py-3">
-              <div className="flex flex-wrap gap-1.5">
-                {role.permissions.map((p) => (
-                  <Badge
-                    key={p}
-                    variant={permissionVariant[p]}
-                    className="capitalize text-xs"
-                  >
-                    {permissionLabel[p]}
-                  </Badge>
-                ))}
-              </div>
+              <Badge variant="secondary" className="text-xs">
+                {role.permissions.length} permission{role.permissions.length !== 1 ? "s" : ""}
+              </Badge>
             </TableCell>
             <TableCell className="py-3">
               <Badge variant="outline" className="font-mono text-xs">
-                {role.guardName}
+                {role.guard_name}
               </Badge>
             </TableCell>
             <TableCell className="text-muted-foreground py-3 text-sm">
-              {role.createdAt}
+              {new Date(role.created_at).toLocaleDateString()}
             </TableCell>
             <TableCell className="text-right py-3">
               <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">

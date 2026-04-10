@@ -15,6 +15,7 @@ import { useUsers } from "@/hooks/useUsers"
 import type { User } from "@/app/users/data"
 import type { UserFormData } from "@/app/users/pages/user-form"
 import { UserDetailSheet } from "./user-detail-sheet"
+import { ProtectedRoute } from "@/components/ProtectedRoute"
 
 type ViewMode = "table" | "grid"
 type PageView = "list" | "form"
@@ -113,18 +114,14 @@ export default function UsersPage() {
   }
 
   // ── Real create / update via API ────────────────────────────────────────────
-  async function handleFormSubmit(data: UserFormData) {
+  async function handleFormSubmit(data: UserFormData): Promise<string | null> {
     if (formMode === "create") {
-      // Create needs name, email, and password
-      const ok = await createUser({
+      const createdUser = await createUser({
         name: data.name,
         email: data.email,
         password: data.password,
       })
-      if (ok) {
-        setPageView("list")
-        setSelectedUser(null)
-      }
+      if (createdUser) return createdUser.id
     } else if (selectedUser) {
       // Update — only include password if the user typed one
       const ok = await updateUser(selectedUser.id, {
@@ -132,11 +129,9 @@ export default function UsersPage() {
         email: data.email,
         ...(data.password ? { password: data.password } : {}),
       })
-      if (ok) {
-        setPageView("list")
-        setSelectedUser(null)
-      }
+      if (ok) return selectedUser.id
     }
+    return null
   }
 
   function handleFormCancel() {
@@ -161,12 +156,16 @@ export default function UsersPage() {
         submitError={submitError}
         onSubmit={handleFormSubmit}
         onCancel={handleFormCancel}
+        onSuccess={() => {
+          setPageView("list")
+          setSelectedUser(null)
+        }}
       />
     )
   }
 
   return (
-    <>
+    <ProtectedRoute role="admin">
       <div className="flex flex-1 flex-col gap-6 p-4 md:p-6">
         {/* Header */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
@@ -314,6 +313,6 @@ export default function UsersPage() {
         onOpenChange={setDeleteDialogOpen}
         onConfirm={handleConfirmDelete}
       />
-    </>
+    </ProtectedRoute>
   )
 }

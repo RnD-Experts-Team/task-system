@@ -7,7 +7,6 @@ import RightOverviewPanel from "./components/RightOverviewPanel"
 import EmptyState from "./components/EmptyState"
 import {
   StatCardRowSkeleton,
-  TeamCarouselSkeleton,
   ProjectStatusChartSkeleton,
   TaskVelocityChartSkeleton,
   HelpRequestCardSkeleton,
@@ -109,8 +108,8 @@ export default function DashboardPage() {
           <PeriodFilter value={analyticsPeriod} onChange={setAnalyticsPeriod} />
         </div>
 
-        {/* Team carousel — skeleton on first analytics load */}
-        {analyticsLoading && !analytics ? <TeamCarouselSkeleton /> : <TeamCarousel />}
+        {/* Team carousel fetches users directly and handles its own UI states */}
+        <TeamCarousel />
 
         {/* KPI stat cards — skeleton until analytics overview arrives */}
         {analyticsLoading && !analytics ? (

@@ -1,4 +1,4 @@
-import type { Role } from "@/app/roles/data"
+import type { Role } from "@/types"
 import { RoleCard } from "@/app/roles/pages/role-card"
 
 type RoleGridViewProps = {

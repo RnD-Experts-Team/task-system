@@ -1,5 +1,5 @@
 import type { Project } from "@/app/projects/data"
-import type { ProjectFormData } from "@/app/projects/pages/project-form"
+mport type { ProjectFormValues as ProjectFormData } from "@/app/projects/components/project-form"
 
 /**
  * Fetch a single project by ID

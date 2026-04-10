@@ -9,38 +9,26 @@ import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Button } from "@/components/ui/button"
 import { Pencil, Shield, CheckCircle2 } from "lucide-react"
-import type { Role, Permission } from "@/app/roles/data"
+import type { Role } from "@/types"
 
 type RoleDetailSheetProps = {
   role: Role | null
   open: boolean
   onOpenChange: (open: boolean) => void
   onEdit?: (role: Role) => void
+  loading?: boolean
 }
 
-const permissionLabels: Record<Permission, string> = {
-  create: "Create",
-  read: "Read",
-  update: "Update",
-  delete: "Delete",
-}
 
-const permissionDescriptions: Record<Permission, string> = {
-  create: "Can create new resources",
-  read: "Can view existing resources",
-  update: "Can modify existing resources",
-  delete: "Can remove resources permanently",
-}
-
-const ALL_PERMS: Permission[] = ["create", "read", "update", "delete"]
 
 export function RoleDetailSheet({
   role,
   open,
   onOpenChange,
   onEdit,
+  loading = false,
 }: RoleDetailSheetProps) {
-  if (!role) return null
+  if (!role && !loading) return null
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -49,15 +37,18 @@ export function RoleDetailSheet({
           <div className="flex items-center justify-center size-16 rounded-2xl bg-primary/10 ring-2 ring-primary/20">
             <Shield className="size-8 text-primary" />
           </div>
-          <SheetTitle className="text-2xl">{role.name}</SheetTitle>
+          <SheetTitle className="text-2xl">{role?.name ?? "Loading..."}</SheetTitle>
           <SheetDescription className="text-sm">
-            Guard: <span className="font-medium text-foreground">{role.guardName}</span>
+            Guard: <span className="font-medium text-foreground">{role?.guard_name}</span>
           </SheetDescription>
-          <Badge variant="secondary" className="uppercase tracking-wider text-xs">
-            {role.permissions.length === 4 ? "Full Access" : `${role.permissions.length} Permission${role.permissions.length !== 1 ? "s" : ""}`}
-          </Badge>
+          {role && (
+            <Badge variant="secondary" className="uppercase tracking-wider text-xs">
+              {role.permissions.length} Permission{role.permissions.length !== 1 ? "s" : ""}
+            </Badge>
+          )}
         </SheetHeader>
 
+        {role && (
         <div className="px-6 pb-10 space-y-8">
           {/* Quick Info */}
           <div className="grid grid-cols-2 gap-3">
@@ -65,13 +56,13 @@ export function RoleDetailSheet({
               <p className="text-sm font-semibold uppercase tracking-widest text-muted-foreground mb-1">
                 Guard
               </p>
-              <p className="text-sm font-medium font-mono">{role.guardName}</p>
+              <p className="text-sm font-medium font-mono">{role.guard_name}</p>
             </div>
             <div className="rounded-lg bg-muted/50 p-4">
               <p className="text-sm font-semibold uppercase tracking-widest text-muted-foreground mb-1">
                 Created
               </p>
-              <p className="text-sm font-medium">{role.createdAt}</p>
+              <p className="text-sm font-medium">{new Date(role.created_at).toLocaleDateString()}</p>
             </div>
           </div>
 
@@ -83,41 +74,21 @@ export function RoleDetailSheet({
               Permissions
             </h3>
             <div className="space-y-2">
-              {ALL_PERMS.map((permission) => {
-                const granted = role.permissions.includes(permission)
-                return (
+              {role.permissions.map((permission) => (
                   <div
-                    key={permission}
-                    className={`flex items-center gap-3 rounded-lg border p-3 transition-colors ${
-                      granted
-                        ? "border-primary/30 bg-primary/5"
-                        : "border-border opacity-40"
-                    }`}
+                    key={permission.id}
+                    className="flex items-center gap-3 rounded-lg border p-3 border-primary/30 bg-primary/5"
                   >
-                    <CheckCircle2
-                      className={`size-4 shrink-0 ${
-                        granted ? "text-primary" : "text-muted-foreground"
-                      }`}
-                    />
-                    <div className="flex flex-col gap-0.5">
-                      <p className="text-sm font-medium">
-                        {permissionLabels[permission]}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {permissionDescriptions[permission]}
-                      </p>
-                    </div>
-                    {granted && (
-                      <Badge
-                        variant="secondary"
-                        className="ml-auto text-xs"
-                      >
-                        Granted
-                      </Badge>
-                    )}
+                    <CheckCircle2 className="size-4 shrink-0 text-primary" />
+                    <p className="text-sm font-medium capitalize">{permission.name}</p>
+                    <Badge variant="secondary" className="ml-auto text-xs">
+                      Granted
+                    </Badge>
                   </div>
-                )
-              })}
+              ))}
+              {role.permissions.length === 0 && (
+                <p className="text-sm text-muted-foreground">No permissions assigned.</p>
+              )}
             </div>
           </section>
 
@@ -135,6 +106,7 @@ export function RoleDetailSheet({
             </>
           )}
         </div>
+        )}
       </SheetContent>
     </Sheet>
   )
