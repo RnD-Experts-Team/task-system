@@ -10,7 +10,8 @@ import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Button } from "@/components/ui/button"
 import { Pencil, Star, CheckCircle2, Circle } from "lucide-react"
-import type { Task } from "@/app/tasks/data"
+// Use the API-aligned Task type (not the mock from data.ts)
+import type { Task } from "@/app/tasks/types"
 
 type TaskDetailSheetProps = {
   task: Task | null
@@ -28,18 +29,19 @@ function getInitials(name: string) {
     .toUpperCase()
 }
 
+// Status labels and variants aligned with the API enum values
 const statusLabel: Record<string, string> = {
-  "in-progress": "In Progress",
   pending: "Pending",
-  completed: "Completed",
-  todo: "Todo",
+  in_progress: "In Progress",
+  done: "Done",
+  rated: "Rated",
 }
 
 const statusVariant: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
-  "in-progress": "default",
   pending: "outline",
-  completed: "default",
-  todo: "secondary",
+  in_progress: "default",
+  done: "secondary",
+  rated: "secondary",
 }
 
 const priorityVariant: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
@@ -58,9 +60,13 @@ export function TaskDetailSheet({
 }: TaskDetailSheetProps) {
   if (!task) return null
 
-  const completedSubtasks = task.subtasks.filter((s) => s.completed).length
+  // Count completed subtasks using the API field is_complete
+  const completedSubtasks = task.subtasks.filter((s) => s.is_complete).length
   const totalSubtasks = task.subtasks.length
   const progress = totalSubtasks > 0 ? Math.round((completedSubtasks / totalSubtasks) * 100) : 0
+  // Resolve display names from relationships
+  const projectName = task.section?.project?.name ?? "—"
+  const sectionName = task.section?.name ?? "—"
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -70,11 +76,11 @@ export function TaskDetailSheet({
             <Badge variant={priorityVariant[task.priority] ?? "outline"} className="capitalize">
               {task.priority} Priority
             </Badge>
-            <span className="text-xs text-muted-foreground font-mono">{task.code}</span>
-            <Badge variant="secondary">{task.project}</Badge>
+            <span className="text-xs text-muted-foreground font-mono">#{task.id}</span>
+            <Badge variant="secondary">{projectName}</Badge>
           </div>
-          <SheetTitle className="text-2xl">{task.title}</SheetTitle>
-          <SheetDescription className="sr-only">Task details for {task.title}</SheetDescription>
+          <SheetTitle className="text-2xl">{task.name}</SheetTitle>
+          <SheetDescription className="sr-only">Task details for {task.name}</SheetDescription>
         </SheetHeader>
 
         <div className="px-8 pb-10 space-y-8">
@@ -87,9 +93,9 @@ export function TaskDetailSheet({
               <div className="flex items-center gap-2">
                 <span
                   className={`size-2 rounded-full ${
-                    task.status === "in-progress"
+                    task.status === "in_progress"
                       ? "bg-primary animate-pulse"
-                      : task.status === "completed"
+                      : task.status === "done" || task.status === "rated"
                         ? "bg-green-500"
                         : "bg-muted-foreground"
                   }`}
@@ -103,7 +109,7 @@ export function TaskDetailSheet({
               <p className="text-sm font-semibold uppercase tracking-widest text-muted-foreground mb-1">
                 Due Date
               </p>
-              <p className="text-sm font-medium">{task.dueDate}</p>
+              <p className="text-sm font-medium">{task.due_date}</p>
             </div>
             <div className="rounded-lg bg-muted/50 p-4">
               <p className="text-sm font-semibold uppercase tracking-widest text-muted-foreground mb-1">
@@ -115,7 +121,7 @@ export function TaskDetailSheet({
               <p className="text-sm font-semibold uppercase tracking-widest text-muted-foreground mb-1">
                 Section
               </p>
-              <p className="text-sm font-medium">{task.section}</p>
+              <p className="text-sm font-medium">{sectionName}</p>
             </div>
           </div>
 
@@ -123,20 +129,27 @@ export function TaskDetailSheet({
           <section>
             <h4 className="text-sm font-semibold mb-3">Assignees</h4>
             <div className="flex flex-wrap gap-3">
-              {task.assignees.map((assignee) => (
+              {task.assigned_users.map((user) => (
                 <div
-                  key={assignee.id}
+                  key={user.id}
                   className="flex items-center gap-2 rounded-full bg-muted/50 pr-3 pl-1 py-1"
                 >
                   <Avatar className="size-6">
-                    <AvatarImage src={assignee.avatarUrl} alt={assignee.name} />
+                    <AvatarImage src={user.avatar_url ?? undefined} alt={user.name} />
                     <AvatarFallback className="text-[8px]">
-                      {getInitials(assignee.name)}
+                      {getInitials(user.name)}
                     </AvatarFallback>
                   </Avatar>
-                  <span className="text-sm">{assignee.name}</span>
+                  <span className="text-sm">{user.name}</span>
+                  {/* Show the assignment percentage if available */}
+                  {user.pivot?.percentage !== undefined && (
+                    <span className="text-xs text-muted-foreground">{user.pivot.percentage}%</span>
+                  )}
                 </div>
               ))}
+              {task.assigned_users.length === 0 && (
+                <p className="text-sm text-muted-foreground">No assignees</p>
+              )}
             </div>
           </section>
 
@@ -169,32 +182,32 @@ export function TaskDetailSheet({
                 <div
                   key={subtask.id}
                   className={`flex items-center gap-3 p-3 rounded-lg ${
-                    subtask.completed
+                    subtask.is_complete
                       ? "bg-muted/30"
                       : "bg-muted/50 border-l-2 border-primary"
                   }`}
                 >
-                  {subtask.completed ? (
+                  {subtask.is_complete ? (
                     <CheckCircle2 className="size-4 text-primary shrink-0" />
                   ) : (
                     <Circle className="size-4 text-muted-foreground shrink-0" />
                   )}
                   <span
                     className={`text-sm ${
-                      subtask.completed
+                      subtask.is_complete
                         ? "text-muted-foreground line-through"
                         : "text-foreground"
                     }`}
                   >
-                    {subtask.title}
+                    {subtask.name}
                   </span>
                 </div>
               ))}
             </div>
           </section>
 
-          {/* Rating */}
-          {task.rating > 0 && (
+          {/* Latest final rating (0–100 score from the API) */}
+          {task.latest_final_rating !== null && (
             <>
               <Separator />
               <section>
@@ -205,31 +218,23 @@ export function TaskDetailSheet({
                     </div>
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                        Quality Rating
+                        Latest Rating
                       </p>
                       <p className="text-sm font-bold">
-                        {task.rating >= 4
+                        {task.latest_final_rating >= 80
                           ? "Excellent"
-                          : task.rating >= 3
+                          : task.latest_final_rating >= 60
                             ? "Good"
-                            : task.rating >= 2
+                            : task.latest_final_rating >= 40
                               ? "Fair"
                               : "Needs Improvement"}
                       </p>
                     </div>
                   </div>
-                  <div className="flex gap-0.5">
-                    {Array.from({ length: 5 }).map((_, i) => (
-                      <Star
-                        key={i}
-                        className={`size-4 ${
-                          i < task.rating
-                            ? "fill-primary text-primary"
-                            : "text-muted-foreground/30"
-                        }`}
-                      />
-                    ))}
-                  </div>
+                  <span className="text-2xl font-bold tabular-nums">
+                    {task.latest_final_rating.toFixed(1)}
+                    <span className="text-xs text-muted-foreground font-normal ml-1">/ 100</span>
+                  </span>
                 </div>
               </section>
             </>

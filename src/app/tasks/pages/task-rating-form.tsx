@@ -6,7 +6,8 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { ArrowLeft } from "lucide-react"
-import type { Task } from "@/app/tasks/data"
+// Use the API-aligned Task type; ratingConfigurations are local until the ratings API is wired
+import type { Task } from "@/app/tasks/types"
 import { ratingConfigurations } from "@/app/tasks/data"
 
 type TaskRatingFormProps = {
@@ -62,7 +63,7 @@ export function TaskRatingForm({ task, onSubmit, onCancel }: TaskRatingFormProps
           <div className="flex flex-col gap-1 flex-1">
             <div className="flex items-center gap-3">
               <h2 className="text-3xl md:text-4xl font-bold tracking-tight">
-                Task Ratings — {task.title}
+                Task Ratings — {task.name}
               </h2>
             </div>
             <p className="text-sm text-muted-foreground">
@@ -177,58 +178,13 @@ export function TaskRatingForm({ task, onSubmit, onCancel }: TaskRatingFormProps
               Previous Ratings
             </h4>
 
-            {task.ratings.length > 0 ? (
-              task.ratings.map((entry) => (
-                <Card key={entry.id}>
-                  <CardContent className="p-0">
-                    <div className="p-4 flex justify-between items-start border-b">
-                      <div>
-                        <span className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">
-                          Entry #{entry.id.replace("r", "")}
-                        </span>
-                        <p className="text-sm font-bold mt-1">{entry.date}</p>
-                      </div>
-                      <span className="text-2xl font-bold">
-                        {entry.overall}
-                        <span className="text-xs text-muted-foreground">.00%</span>
-                      </span>
-                    </div>
-                    <div className="p-4 space-y-3">
-                      {entry.criteria.map((c) => (
-                        <div key={c.label} className="space-y-1.5">
-                          <div className="flex justify-between text-xs">
-                            <span className="text-muted-foreground">{c.label}</span>
-                            <span className="font-bold">{c.score}</span>
-                          </div>
-                          <div className="h-1 bg-muted rounded-full overflow-hidden">
-                            <div
-                              className="h-full bg-primary/60 rounded-full"
-                              style={{ width: `${c.score}%` }}
-                            />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="px-4 py-3 bg-muted/30 flex items-center justify-between border-t">
-                      <div className="flex items-center gap-2">
-                        <div className="size-6 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-bold text-primary">
-                          {entry.ratedBy.initials}
-                        </div>
-                        <span className="text-xs font-semibold text-muted-foreground">
-                          {entry.ratedBy.name}
-                        </span>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))
-            ) : (
-              <Card>
-                <CardContent className="p-6 text-center">
-                  <p className="text-sm text-muted-foreground">No previous ratings</p>
-                </CardContent>
-              </Card>
-            )}
+            {/* Previous ratings sidebar — will be populated from the ratings API endpoint */}
+            {/* Showing placeholder until GET /tasks/{id}/ratings is wired up */}
+            <Card>
+              <CardContent className="p-6 text-center">
+                <p className="text-sm text-muted-foreground">No previous ratings</p>
+              </CardContent>
+            </Card>
 
             {/* Insight Card */}
             <Card className="border-primary/20 bg-primary/5">
@@ -245,7 +201,7 @@ export function TaskRatingForm({ task, onSubmit, onCancel }: TaskRatingFormProps
                   <span className="font-bold text-primary">
                     Top {task.weight > 70 ? "5%" : task.weight > 50 ? "20%" : "50%"}
                   </span>{" "}
-                  of critical deliverables for the {task.project} project.
+                  of critical deliverables for the {task.section?.project?.name ?? "this"} project.
                 </p>
               </CardContent>
             </Card>

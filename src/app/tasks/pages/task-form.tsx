@@ -1,4 +1,12 @@
-import { useState } from "react"
+// Task Form — used for both Create and Edit modes.
+// Create mode → POST /tasks, then POST /tasks/{id}/assign-users (one bulk call).
+// Edit mode   → PUT /tasks/{id}, TaskAssignmentPanel handles assignment CRUD inline.
+//
+// Assignment rows are collected locally in create mode and submitted in a single
+// bulk request after the task is saved — no per-user round trips.
+
+import { useState, useEffect } from "react"
+import { AxiosError, isCancel } from "axios"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -13,87 +21,315 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
-import { ArrowLeft, Plus, X } from "lucide-react"
-import type { Task, TaskFormData, TaskPriority, TaskStatus } from "@/app/tasks/data"
-import { projectOptions, sectionOptions } from "@/app/tasks/data"
+import { AlertCircle, ArrowLeft, Loader2, Plus, X } from "lucide-react"
+
+// Store actions for creating / updating tasks
+import { useCreateTask } from "@/app/tasks/hooks/useCreateTask"
+import { useUpdateTask } from "@/app/tasks/hooks/useUpdateTask"
+import { taskService } from "@/app/tasks/services/taskService"
+
+// Project and section services to populate the selectors
+import { projectService } from "@/app/projects/services/projectService"
+import { sectionService } from "@/app/projects/sections/section-service"
+import type { Project } from "@/app/projects/types"
+import type { Section } from "@/app/projects/sections/types"
+
+// API-aligned Task type (from types/index.ts, not the mock data.ts)
+import type { Task, TaskPriority, TaskStatus, Subtask } from "@/app/tasks/types"
+import type { ApiValidationError } from "@/types"
+
+// Assignment panel — manages add/remove/bulk-assign for a task
+import { TaskAssignmentPanel } from "@/app/tasks/pages/task-assignment-panel"
+// All-users hook — populates the user selector in the create-mode assignment builder
+import { useAllUsers } from "@/app/tasks/hooks/useAllUsers"
+
+// ─── Types ────────────────────────────────────────────────────────
 
 type TaskFormProps = {
   mode: "create" | "edit"
+  /** Populated in edit mode with the task loaded from GET /tasks/{id} */
   initialData?: Task | null
-  onSubmit: (data: TaskFormData) => void
+  /** Called after a successful API response — caller navigates away */
+  onSubmit: () => void
   onCancel: () => void
 }
 
+// ─── Constants ────────────────────────────────────────────────────
+
 const statusOptions: { value: TaskStatus; label: string }[] = [
-  { value: "todo", label: "Todo" },
   { value: "pending", label: "Pending" },
-  { value: "in-progress", label: "In Progress" },
-  { value: "completed", label: "Completed" },
+  { value: "in_progress", label: "In Progress" },
+  { value: "done", label: "Done" },
+  { value: "rated", label: "Rated" },
 ]
 
 const priorityOptions: TaskPriority[] = ["low", "medium", "high", "critical"]
 
-export function TaskForm({ mode, initialData, onSubmit, onCancel }: TaskFormProps) {
-  const [title, setTitle] = useState(initialData?.title ?? "")
-  const [description, setDescription] = useState(initialData?.description ?? "")
-  const [status, setStatus] = useState<TaskStatus>(initialData?.status ?? "todo")
-  const [priority, setPriority] = useState<TaskPriority>(initialData?.priority ?? "medium")
-  const [project, setProject] = useState(initialData?.project ?? "")
-  const [section, setSection] = useState(initialData?.section ?? "")
-  const [weight, setWeight] = useState(initialData?.weight ?? 50)
-  const [dueDate, setDueDate] = useState(initialData?.dueDate ?? "")
-  const [subtaskInput, setSubtaskInput] = useState("")
-  const [subtasks, setSubtasks] = useState(
-    initialData?.subtasks ?? []
-  )
-  const [errors, setErrors] = useState<Record<string, string>>({})
+// Pull a readable message from Axios errors returned by the status endpoint.
+function extractStatusError(err: unknown): string {
+  if (err instanceof AxiosError) {
+    const data = err.response?.data as ApiValidationError | undefined
+    if (data?.errors) return Object.values(data.errors).flat().join(". ")
+    if (data?.message) return data.message
+  }
+  return "Failed to update task status."
+}
 
-  function validate() {
+// Flattens nested values so the status response can be rendered in a compact table.
+// Response table utilities removed (no longer used)
+
+// ─── Local types ─────────────────────────────────────────────────
+// One row in the create-mode assignment builder — local state only, not sent
+// to the API until the task is saved.
+type AssignmentRow = { key: number; userId: string; percentage: string }
+
+// ─── Component ────────────────────────────────────────────────────
+
+export function TaskForm({ mode, initialData, onSubmit, onCancel }: TaskFormProps) {
+  // ── Mutation hooks ─────────────────────────────────────────────
+  const { createTask, submitting: creating, submitError: createError, clearSubmitError: clearCreateError } = useCreateTask()
+  const { updateTask, submitting: updating, submitError: updateError, clearSubmitError: clearUpdateError } = useUpdateTask()
+
+  // Combine submitting / error from whichever hook applies to the current mode
+  const submitting = mode === "create" ? creating : updating
+  const submitError = mode === "create" ? createError : updateError
+
+  // ── Projects & Sections data for the selectors ─────────────────
+  const [projects, setProjects] = useState<Project[]>([])
+  const [projectsLoading, setProjectsLoading] = useState(false)
+  const [sections, setSections] = useState<Section[]>([])
+  const [sectionsLoading, setSectionsLoading] = useState(false)
+
+  // ── Form field state (initialised from initialData in edit mode) ─
+  const [name, setName] = useState(initialData?.name ?? "")
+  const [description, setDescription] = useState(initialData?.description ?? "")
+  const [status, setStatus] = useState<TaskStatus>(initialData?.status ?? "pending")
+  const [priority, setPriority] = useState<TaskPriority>(initialData?.priority ?? "medium")
+  const [weight, setWeight] = useState<number>(initialData?.weight ?? 1)
+  const [dueDate, setDueDate] = useState(initialData?.due_date ?? "")
+
+  // Project is derived from the section relationship; pre-select in edit mode
+  const [selectedProjectId, setSelectedProjectId] = useState<number | null>(
+    initialData?.section?.project_id ?? null
+  )
+  const [sectionId, setSectionId] = useState<number | null>(
+    initialData?.section_id ?? null
+  )
+
+  // Subtasks — UI only; no API call here, subtask endpoints are separate
+  const [subtaskInput, setSubtaskInput] = useState("")
+  const [subtasks, setSubtasks] = useState<Subtask[]>(
+    Array.isArray(initialData?.subtasks) ? initialData.subtasks : []
+  )
+
+  // Client-side validation error messages shown below each field
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
+
+  // Status mutation state (POST /tasks/{id}/status) with UI-only error handling.
+  const [statusSubmitting, setStatusSubmitting] = useState(false)
+  const [statusError, setStatusError] = useState<string | null>(null)
+
+  // All users for the assignment picker — loaded once, used in create mode
+  const { users: allUsers, loading: usersLoading } = useAllUsers()
+
+  // Assignment rows for create mode — collected locally, then submitted in one
+  // bulk POST /tasks/{id}/assign-users after the task is created.
+  const [assignmentRows, setAssignmentRows] = useState<AssignmentRow[]>([])
+
+  // Live total across all rows — drives the UI badge and the ≤ 100% validation.
+  const totalPercentage = assignmentRows.reduce((sum, r) => {
+    const p = parseFloat(r.percentage)
+    return sum + (isNaN(p) ? 0 : p)
+  }, 0)
+
+  // ── Fetch projects once on mount ───────────────────────────────
+  useEffect(() => {
+    setProjectsLoading(true)
+    projectService
+      .getAll()
+      .then((data) => setProjects(data))
+      .catch(() => {}) // API client interceptor already shows a toast on error
+      .finally(() => setProjectsLoading(false))
+  }, [])
+
+  // ── Fetch sections whenever the selected project changes ───────
+  useEffect(() => {
+    if (selectedProjectId === null) {
+      setSections([])
+      return
+    }
+    setSectionsLoading(true)
+    sectionService
+      .getByProject(selectedProjectId)
+      .then((data) => setSections(data))
+      .catch(() => {})
+      .finally(() => setSectionsLoading(false))
+  }, [selectedProjectId])
+
+  // ── Clear submit errors when the form unmounts ─────────────────
+  useEffect(() => {
+    return () => {
+      clearCreateError()
+      clearUpdateError()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // ── Client-side validation ─────────────────────────────────────
+  function validate(): boolean {
     const next: Record<string, string> = {}
-    if (!title.trim()) next.title = "Task name is required"
-    if (!project) next.project = "Project is required"
-    if (!dueDate) next.dueDate = "Due date is required"
-    setErrors(next)
+    if (!name.trim()) next.name = "Task name is required."
+    if (!dueDate) next.due_date = "Due date is required."
+    if (!sectionId) next.section_id = "Section is required."
+    if (weight < 1) next.weight = "Weight must be at least 1."
+    // Enforce the 100% ceiling before hitting the API
+    if (mode === "create" && totalPercentage > 100) {
+      next.assignments = `Total allocation is ${totalPercentage.toFixed(1)}% — must not exceed 100%.`
+    }
+    setFieldErrors(next)
     return Object.keys(next).length === 0
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  // ── Submit — calls create or update depending on mode ──────────
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!validate()) return
-    onSubmit({
-      title,
-      description,
-      status,
-      priority,
-      project,
-      section,
-      weight,
-      dueDate,
-      assignees: initialData?.assignees ?? [],
-      subtasks,
-    })
+    // clear any previous status error before attempting submit
+    setStatusError(null)
+
+    let success = false
+
+    if (mode === "create") {
+      // POST /tasks
+      const result = await createTask({
+        name: name.trim(),
+        description: description.trim() || null,
+        weight,
+        due_date: dueDate,
+        priority,
+        section_id: sectionId!,
+      })
+      if (result) {
+        // Apply status using the dedicated endpoint immediately after creation.
+        const statusUpdated = await submitStatusChange(result.id)
+        if (statusUpdated) {
+          // Collect only fully-filled rows and submit all assignments in one
+          // request — eliminates the per-user round-trip lag.
+          const validAssignments = assignmentRows.filter(
+            (r) => r.userId && r.percentage && !isNaN(parseFloat(r.percentage))
+          )
+          if (validAssignments.length > 0) {
+            try {
+              await taskService.assignUsers(result.id, {
+                assignments: validAssignments.map((r) => ({
+                  user_id: Number(r.userId),
+                  percentage: parseFloat(r.percentage),
+                })),
+              })
+            } catch (err) {
+              // Task was created — API client shows a toast for the assignment
+              // error. We still navigate so the user can edit from the list.
+              if (isCancel(err)) return
+            }
+          }
+          success = true
+        }
+      }
+    } else if (initialData) {
+      // PUT /tasks/{id}
+      const result = await updateTask(initialData.id, {
+        name: name.trim(),
+        description: description.trim() || null,
+        weight,
+        due_date: dueDate,
+        priority,
+        section_id: sectionId!,
+      })
+      if (result) {
+        // Keep status updates on the dedicated endpoint to match backend contract.
+        const statusUpdated = await submitStatusChange(initialData.id)
+        success = statusUpdated
+      }
+    }
+
+    // On success navigate back to the list (caller will refetch)
+    if (success) onSubmit()
   }
 
+  // Shared status mutation handler used by both create and edit actions.
+  async function submitStatusChange(taskId: number) {
+    setStatusSubmitting(true)
+    setStatusError(null)
+    try {
+      await taskService.updateStatus(taskId, { status })
+      return true
+    } catch (err) {
+      // Skip canceled requests; only show actionable errors in the UI.
+      if (!isCancel(err)) {
+        setStatusError(extractStatusError(err))
+      }
+      return false
+    } finally {
+      setStatusSubmitting(false)
+    }
+  }
+
+  // ── Subtask helpers (UI-only) ──────────────────────────────────
   function handleAddSubtask() {
     if (!subtaskInput.trim()) return
+    // Temporary subtask object — real IDs come from the API separately
     setSubtasks((prev) => [
       ...prev,
-      { id: `new-${Date.now()}`, title: subtaskInput.trim(), completed: false },
+      {
+        id: Date.now(),
+        name: subtaskInput.trim(),
+        is_complete: false,
+        task_id: initialData?.id ?? 0,
+        due_date: "",
+        priority: "medium" as TaskPriority,
+        description: null,
+        created_at: "",
+        updated_at: "",
+      },
     ])
     setSubtaskInput("")
   }
 
-  function handleRemoveSubtask(id: string) {
+  function handleRemoveSubtask(id: number) {
     setSubtasks((prev) => prev.filter((s) => s.id !== id))
   }
 
+  // ── Assignment row helpers (create mode only) ──────────────────
+
+  // Append a blank row to the builder list
+  function addAssignmentRow() {
+    setAssignmentRows((prev) => [...prev, { key: Date.now(), userId: "", percentage: "" }])
+  }
+
+  // Remove a specific row by its local key
+  function removeAssignmentRow(key: number) {
+    setAssignmentRows((prev) => prev.filter((r) => r.key !== key))
+  }
+
+  // Update one field of a row; clears the over-100% error when percentage changes
+  function updateAssignmentRow(key: number, field: "userId" | "percentage", value: string) {
+    setAssignmentRows((prev) =>
+      prev.map((r) => (r.key === key ? { ...r, [field]: value } : r))
+    )
+    if (field === "percentage") {
+      setFieldErrors((prev) => ({ ...prev, assignments: "" }))
+    }
+  }
+
+  // ── Render ─────────────────────────────────────────────────────
   return (
     <div className="flex w-full justify-center p-4 md:p-8">
       <Card className="w-full max-w-4xl">
         <CardContent className="p-6 md:p-8">
-          {/* Header */}
+
+          {/* Page header */}
           <div className="flex items-center gap-4 mb-6">
-            <Button variant="ghost" size="icon-lg" onClick={onCancel}>
+            <Button variant="ghost" size="icon-lg" onClick={onCancel} disabled={submitting}>
               <ArrowLeft />
             </Button>
             <div className="flex flex-col gap-1">
@@ -108,104 +344,147 @@ export function TaskForm({ mode, initialData, onSubmit, onCancel }: TaskFormProp
               <p className="text-sm md:text-lg text-muted-foreground max-w-2xl">
                 {mode === "create"
                   ? "Create a task with subtasks and user assignments."
-                  : `Update details for ${initialData?.title ?? "this task"}.`}
+                  : `Update details for ${initialData?.name ?? "this task"}.`}
               </p>
             </div>
           </div>
 
+          {/* API-level submit error banner (e.g. 422 validation or 500) */}
+          {submitError && !submitting && (
+            <div className="flex items-center gap-2 rounded-lg border border-destructive/20 bg-destructive/5 p-4 mb-6 text-sm text-destructive">
+              <AlertCircle className="size-4 shrink-0" />
+              <span>{submitError}</span>
+            </div>
+          )}
+
+          {statusError && !statusSubmitting && (
+            <div className="flex items-center gap-2 rounded-lg border border-destructive/20 bg-destructive/5 p-4 mb-6 text-sm text-destructive">
+              <AlertCircle className="size-4 shrink-0" />
+              <span>{statusError}</span>
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-8">
-            {/* Task Details */}
+
+            {/* ── Task Details section ── */}
             <section className="space-y-4">
               <h3 className="text-lg font-semibold uppercase tracking-widest text-muted-foreground">
                 Task Details
               </h3>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Task Name - full width */}
+
+                {/* Task Name — spans full width */}
                 <div className="md:col-span-2 space-y-2">
-                  <Label htmlFor="title">Task Name *</Label>
+                  <Label htmlFor="name">Task Name *</Label>
                   <Input
-                    id="title"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
+                    id="name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
                     placeholder="e.g., Implement darkroom shader"
                     className="h-12 text-sm"
                   />
-                  {errors.title && (
-                    <p className="text-sm text-destructive">{errors.title}</p>
+                  {fieldErrors.name && (
+                    <p className="text-sm text-destructive">{fieldErrors.name}</p>
                   )}
                 </div>
 
-                {/* Project */}
+                {/* Project — picking a project populates the Section dropdown */}
                 <div className="space-y-2">
                   <Label>Project *</Label>
-                  <Select value={project} onValueChange={setProject}>
+                  <Select
+                    value={selectedProjectId?.toString() ?? ""}
+                    onValueChange={(v) => {
+                      setSelectedProjectId(Number(v))
+                      setSectionId(null) // clear section when project changes
+                    }}
+                    disabled={projectsLoading}
+                  >
                     <SelectTrigger className="w-full h-12">
-                      <SelectValue placeholder="Select Project" />
+                      <SelectValue
+                        placeholder={projectsLoading ? "Loading projects…" : "Select Project"}
+                      />
                     </SelectTrigger>
                     <SelectContent>
-                      {projectOptions.map((p) => (
-                        <SelectItem key={p} value={p}>
-                          {p}
+                      {projects.map((p) => (
+                        <SelectItem key={p.id} value={p.id.toString()}>
+                          {p.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
-                  {errors.project && (
-                    <p className="text-sm text-destructive">{errors.project}</p>
+                </div>
+
+                {/* Section — populated after a project is selected */}
+                <div className="space-y-2">
+                  <Label>Section *</Label>
+                  <Select
+                    value={sectionId?.toString() ?? ""}
+                    onValueChange={(v) => setSectionId(Number(v))}
+                    disabled={!selectedProjectId || sectionsLoading}
+                  >
+                    <SelectTrigger className="w-full h-12">
+                      <SelectValue
+                        placeholder={
+                          !selectedProjectId
+                            ? "Select a project first"
+                            : sectionsLoading
+                            ? "Loading sections…"
+                            : "Select Section"
+                        }
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {sections.map((s) => (
+                        <SelectItem key={s.id} value={s.id.toString()}>
+                          {s.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {fieldErrors.section_id && (
+                    <p className="text-sm text-destructive">{fieldErrors.section_id}</p>
                   )}
                 </div>
 
-                {/* Section */}
-                <div className="space-y-2">
-                  <Label>Section</Label>
-                  <Select value={section} onValueChange={setSection}>
-                    <SelectTrigger className="w-full h-12">
-                      <SelectValue placeholder="Select Section" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {sectionOptions.map((s) => (
-                        <SelectItem key={s} value={s}>
-                          {s}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Weight */}
+                {/* Weight — integer, must be ≥ 1 */}
                 <div className="space-y-2">
                   <Label htmlFor="weight">Weight *</Label>
                   <Input
                     id="weight"
                     type="number"
                     min={1}
-                    max={100}
                     value={weight}
                     onChange={(e) => setWeight(Number(e.target.value))}
                     className="h-12 text-sm"
                   />
+                  {fieldErrors.weight && (
+                    <p className="text-sm text-destructive">{fieldErrors.weight}</p>
+                  )}
                 </div>
 
-                {/* Due Date */}
+                {/* Due Date — YYYY-MM-DD (RFC 3339 full-date) */}
                 <div className="space-y-2">
-                  <Label htmlFor="dueDate">Due Date *</Label>
+                  <Label htmlFor="due_date">Due Date *</Label>
                   <Input
-                    id="dueDate"
+                    id="due_date"
                     type="date"
                     value={dueDate}
                     onChange={(e) => setDueDate(e.target.value)}
                     className="h-12 text-sm"
                   />
-                  {errors.dueDate && (
-                    <p className="text-sm text-destructive">{errors.dueDate}</p>
+                  {fieldErrors.due_date && (
+                    <p className="text-sm text-destructive">{fieldErrors.due_date}</p>
                   )}
                 </div>
 
-                {/* Status */}
+                {/* Status — only shown during edit; POST /tasks does not accept status */}
                 <div className="space-y-2">
-                  <Label>Status</Label>
-                  <Select value={status} onValueChange={(v) => setStatus(v as TaskStatus)}>
+                  <Label>Status *</Label>
+                  <Select
+                    value={status}
+                    onValueChange={(v) => setStatus(v as TaskStatus)}
+                  >
                     <SelectTrigger className="w-full h-12">
                       <SelectValue />
                     </SelectTrigger>
@@ -217,10 +496,13 @@ export function TaskForm({ mode, initialData, onSubmit, onCancel }: TaskFormProp
                       ))}
                     </SelectContent>
                   </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Saved through POST /tasks/{"{id}"}/status after the main task save succeeds.
+                  </p>
                 </div>
 
-                {/* Priority */}
-                <div className="md:col-span-2 space-y-2">
+                {/* Priority toggle — spans full width in create, half-width in edit */}
+                <div className={`${mode === "edit" ? "" : "md:col-span-2"} space-y-2`}>
                   <Label>Priority *</Label>
                   <ToggleGroup
                     type="single"
@@ -239,7 +521,7 @@ export function TaskForm({ mode, initialData, onSubmit, onCancel }: TaskFormProp
                   </ToggleGroup>
                 </div>
 
-                {/* Description - full width */}
+                {/* Description — optional, full width */}
                 <div className="md:col-span-2 space-y-2">
                   <Label htmlFor="description">Description</Label>
                   <textarea
@@ -251,12 +533,122 @@ export function TaskForm({ mode, initialData, onSubmit, onCancel }: TaskFormProp
                     className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-none"
                   />
                 </div>
+
+                {/* User Assignments —
+                    Create mode: rows collected locally, one bulk POST on save.
+                    Edit mode:   TaskAssignmentPanel handles all CRUD inline. */}
+                <div className="md:col-span-2 space-y-3">
+                  {mode === "edit" && initialData?.id ? (
+                    /* Existing task — full assignment CRUD via the panel */
+                    <TaskAssignmentPanel taskId={initialData.id} mode="edit" />
+                  ) : (
+                    /* Create mode — build the list locally before submitting */
+                    <>
+                      {/* Label + live total badge */}
+                      <div className="flex items-center justify-between">
+                        <Label>User Assignments</Label>
+                        {assignmentRows.length > 0 && (
+                          <span
+                            className={`text-xs font-medium px-2 py-0.5 rounded-full border ${
+                              totalPercentage > 100
+                                ? "border-destructive/50 bg-destructive/10 text-destructive"
+                                : "border-green-400/50 bg-green-50 text-green-700 dark:bg-green-400/10 dark:text-green-400"
+                            }`}
+                          >
+                            {totalPercentage.toFixed(1)}% / 100%
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Over-100% validation error */}
+                      {fieldErrors.assignments && (
+                        <p className="text-sm text-destructive">{fieldErrors.assignments}</p>
+                      )}
+
+                      {totalPercentage >= 100 && (
+                        <p className="text-xs text-muted-foreground">Total allocation is 100% — cannot add more users.</p>
+                      )}
+
+                      {/* Rows */}
+                      {assignmentRows.length > 0 && (
+                        <div className="space-y-2">
+                          {assignmentRows.map((row) => (
+                            <div
+                              key={row.key}
+                              className="flex flex-col sm:flex-row gap-2 items-start sm:items-center"
+                            >
+                              {/* User picker */}
+                              <Select
+                                value={row.userId}
+                                onValueChange={(v) => updateAssignmentRow(row.key, "userId", v)}
+                                disabled={usersLoading}
+                              >
+                                <SelectTrigger className="flex-1 h-10 text-sm">
+                                  <SelectValue
+                                    placeholder={usersLoading ? "Loading users…" : "Select user"}
+                                  />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {allUsers.map((u) => (
+                                    <SelectItem key={u.id} value={u.id.toString()}>
+                                      {u.name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+
+                              <div className="flex gap-2 w-full sm:w-auto">
+                                {/* Percentage — live total updates as user types */}
+                                <Input
+                                  type="number"
+                                  min={0.01}
+                                  max={100}
+                                  step={0.01}
+                                  placeholder="% e.g. 50"
+                                  value={row.percentage}
+                                  onChange={(e) =>
+                                    updateAssignmentRow(row.key, "percentage", e.target.value)
+                                  }
+                                  className="w-full sm:w-28 h-10 text-sm"
+                                />
+                                {/* Remove this row */}
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon-xs"
+                                  onClick={() => removeAssignmentRow(row.key)}
+                                  className="text-destructive hover:bg-destructive/10 shrink-0"
+                                  aria-label="Remove row"
+                                >
+                                  <X className="size-3.5" />
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Add a new row */}
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={addAssignmentRow}
+                        disabled={usersLoading || totalPercentage >= 100}
+                      >
+                        <Plus className="size-3.5" />
+                        {usersLoading ? "Loading users…" : "Add User"}
+                      </Button>
+                    </>
+                  )}
+                </div>
+
               </div>
             </section>
 
             <Separator />
 
-            {/* Subtasks */}
+            {/* ── Subtasks section — UI placeholder; subtask endpoints are handled separately ── */}
             <section className="space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
@@ -264,6 +656,7 @@ export function TaskForm({ mode, initialData, onSubmit, onCancel }: TaskFormProp
                 </h3>
               </div>
 
+              {/* Add subtask input row */}
               <div className="flex gap-2">
                 <Input
                   value={subtaskInput}
@@ -277,12 +670,18 @@ export function TaskForm({ mode, initialData, onSubmit, onCancel }: TaskFormProp
                     }
                   }}
                 />
-                <Button type="button" variant="secondary" size="sm" onClick={handleAddSubtask}>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleAddSubtask}
+                >
                   <Plus className="size-4" />
                   Add
                 </Button>
               </div>
 
+              {/* Subtask list */}
               {subtasks.length > 0 ? (
                 <div className="space-y-2">
                   {subtasks.map((subtask) => (
@@ -290,7 +689,7 @@ export function TaskForm({ mode, initialData, onSubmit, onCancel }: TaskFormProp
                       key={subtask.id}
                       className="flex items-center gap-3 p-3 rounded-lg bg-muted/50"
                     >
-                      <span className="text-sm flex-1">{subtask.title}</span>
+                      <span className="text-sm flex-1">{subtask.name}</span>
                       <Button
                         type="button"
                         variant="ghost"
@@ -314,16 +713,25 @@ export function TaskForm({ mode, initialData, onSubmit, onCancel }: TaskFormProp
 
             <Separator />
 
-            {/* Actions */}
+            {/* ── Form actions ── */}
             <div className="flex items-center justify-end gap-3">
-              <Button type="button" variant="ghost" size="lg" onClick={onCancel}>
+              <Button
+                type="button"
+                variant="ghost"
+                size="lg"
+                onClick={onCancel}
+                disabled={submitting || statusSubmitting}
+              >
                 Discard
               </Button>
-              <Button type="submit" size="lg">
+              <Button type="submit" size="lg" disabled={submitting || statusSubmitting}>
+                {(submitting || statusSubmitting) && <Loader2 className="size-4 animate-spin mr-2" />}
                 {mode === "create" ? "Create Task" : "Save Changes"}
               </Button>
             </div>
+
           </form>
+
         </CardContent>
       </Card>
     </div>

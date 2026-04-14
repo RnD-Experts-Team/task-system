@@ -8,7 +8,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import type { Task } from "@/app/tasks/data"
+// Use the API-aligned Task type (not the mock from data.ts)
+import type { Task } from "@/app/tasks/types"
 
 type ConfirmDeleteTaskDialogProps = {
   task: Task | null
@@ -30,7 +31,7 @@ export function ConfirmDeleteTaskDialog({
           <AlertDialogTitle>Delete Task</AlertDialogTitle>
           <AlertDialogDescription>
             Are you sure you want to delete{" "}
-            <span className="font-semibold text-foreground">{task?.title}</span>?
+            <span className="font-semibold text-foreground">{task?.name}</span>?
             This action is permanent and cannot be undone. All subtasks and
             ratings will also be removed.
           </AlertDialogDescription>

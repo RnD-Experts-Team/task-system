@@ -19,6 +19,7 @@ const EditProjectPage = lazy(() => import("@/app/projects/edit-project-page"))
 const ProjectDetailsPage = lazy(() => import("@/app/projects/project-details-page"))
 const KanbanBoardPage = lazy(() => import("@/app/projects/kanban-board-page"))
 const TasksPage = lazy(() => import("@/app/tasks/pages/page"))
+const TaskDetailPage = lazy(() => import("@/app/tasks/pages/task-detail-page"))
 const HelpRequestsPage = lazy(() => import("@/app/help-requests/pages/page"))
 const TicketsPage = lazy(() => import("@/app/tickets/page"))
 const RatingsConfigurationsPage = lazy(() => import("@/app/ratings/configurations/page"))
@@ -65,6 +66,7 @@ function App() {
                   <Route path="projects/:id/kanban" element={<KanbanBoardPage />} />
                   <Route path="projects/:id/kanban-board" element={<KanbanBoardPage />} />
                   <Route path="tasks" element={<TasksPage />} />
+                  <Route path="tasks/:id" element={<TaskDetailPage />} />
                   <Route path="help-requests" element={<HelpRequestsPage />} />
                   <Route path="tickets" element={<TicketsPage />} />
                   <Route path="ratings/configurations" element={<RatingsConfigurationsPage />} />

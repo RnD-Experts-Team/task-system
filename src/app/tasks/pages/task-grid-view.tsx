@@ -1,4 +1,5 @@
-import type { Task } from "@/app/tasks/data"
+// Use the API-aligned Task type (not the mock from data.ts)
+import type { Task } from "@/app/tasks/types"
 import { TaskCard } from "@/app/tasks/pages/task-card"
 
 type TaskGridViewProps = {

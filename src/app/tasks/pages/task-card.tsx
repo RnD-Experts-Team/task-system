@@ -10,10 +10,12 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { MoreHorizontal, Pencil, Trash2, Star, Calendar } from "lucide-react"
 import { useTilt } from "@/hooks/use-tilt"
-import type { Task } from "@/app/tasks/data"
+// Use the API-aligned Task type (not the mock from data.ts)
+import type { Task } from "@/app/tasks/types"
 
 type TaskCardProps = {
   task: Task
+  /** Navigate to the task detail page */
   onSelect: (task: Task) => void
   onEdit: (task: Task) => void
   onDelete: (task: Task) => void
@@ -28,18 +30,19 @@ function getInitials(name: string) {
     .toUpperCase()
 }
 
+// Status labels and variants aligned with the API enum values
 const statusLabel: Record<string, string> = {
-  "in-progress": "In Progress",
   pending: "Pending",
-  completed: "Completed",
-  todo: "Todo",
+  in_progress: "In Progress",
+  done: "Done",
+  rated: "Rated",
 }
 
 const statusVariant: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
-  "in-progress": "default",
   pending: "outline",
-  completed: "default",
-  todo: "secondary",
+  in_progress: "default",
+  done: "secondary",
+  rated: "secondary",
 }
 
 const priorityVariant: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
@@ -52,9 +55,12 @@ const priorityVariant: Record<string, "default" | "secondary" | "destructive" | 
 export function TaskCard({ task, onSelect, onEdit, onDelete, onRate }: TaskCardProps) {
   const { ref, style } = useTilt<HTMLDivElement>({ maxTilt: 5, scale: 1.015 })
 
-  const completedSubtasks = task.subtasks.filter((s) => s.completed).length
+  // Count completed subtasks using the API field is_complete
+  const completedSubtasks = task.subtasks.filter((s) => s.is_complete).length
   const totalSubtasks = task.subtasks.length
   const progress = totalSubtasks > 0 ? Math.round((completedSubtasks / totalSubtasks) * 100) : 0
+  // Resolve project name from the nested section.project relationship
+  const projectName = task.section?.project?.name ?? "—"
 
   return (
     <Card ref={ref} style={style} className="flex flex-col">
@@ -99,9 +105,9 @@ export function TaskCard({ task, onSelect, onEdit, onDelete, onRate }: TaskCardP
             className="text-lg font-semibold text-foreground hover:text-primary hover:underline underline-offset-2 transition-colors text-left leading-tight"
             onClick={() => onSelect(task)}
           >
-            {task.title}
+            {task.name}
           </button>
-          <span className="text-xs text-muted-foreground">{task.project}</span>
+          <span className="text-xs text-muted-foreground">{projectName}</span>
         </div>
 
         {/* Progress */}
@@ -117,36 +123,38 @@ export function TaskCard({ task, onSelect, onEdit, onDelete, onRate }: TaskCardP
           </div>
         )}
 
-        {/* Rating Stars */}
-        <div className="flex gap-0.5">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <Star
-              key={i}
-              className={`size-3.5 ${
-                i < task.rating ? "fill-primary text-primary" : "text-muted-foreground/30"
-              }`}
-            />
-          ))}
-        </div>
+        {/* Final rating score (0–100) from the latest rating, shown when available */}
+        {task.latest_final_rating !== null ? (
+          <div className="flex items-center gap-1.5 text-xs font-semibold">
+            <Star className="size-3.5 fill-primary text-primary" />
+            <span>{task.latest_final_rating.toFixed(1)}</span>
+            <span className="text-muted-foreground font-normal">/ 100</span>
+          </div>
+        ) : (
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Star className="size-3.5 text-muted-foreground/30" />
+            Not rated
+          </div>
+        )}
 
         {/* Members + Date */}
         <div className="flex items-center justify-between">
           <div className="flex -space-x-2">
-            {task.assignees.slice(0, 3).map((assignee) => (
-              <Avatar key={assignee.id} className="size-6 border-2 border-card">
-                <AvatarImage src={assignee.avatarUrl} alt={assignee.name} />
-                <AvatarFallback className="text-[8px]">{getInitials(assignee.name)}</AvatarFallback>
+            {task.assigned_users.slice(0, 3).map((user) => (
+              <Avatar key={user.id} className="size-6 border-2 border-card">
+                <AvatarImage src={user.avatar_url ?? undefined} alt={user.name} />
+                <AvatarFallback className="text-[8px]">{getInitials(user.name)}</AvatarFallback>
               </Avatar>
             ))}
-            {task.assignees.length > 3 && (
+            {task.assigned_users.length > 3 && (
               <div className="size-6 rounded-full border-2 border-card bg-muted flex items-center justify-center text-[8px] font-bold text-muted-foreground">
-                +{task.assignees.length - 3}
+                +{task.assigned_users.length - 3}
               </div>
             )}
           </div>
           <span className="text-xs text-muted-foreground flex items-center gap-1">
             <Calendar className="size-3" />
-            {task.dueDate}
+            {task.due_date}
           </span>
         </div>
       </CardContent>
