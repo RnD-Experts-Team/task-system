@@ -1,4 +1,4 @@
-import { Card, CardContent, CardFooter } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -8,7 +8,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { MoreHorizontal, Pencil, Trash2, Star, Calendar } from "lucide-react"
+import { MoreHorizontal, Pencil, Trash2, Star, Calendar, CheckSquare, Eye } from "lucide-react"
 import { useTilt } from "@/hooks/use-tilt"
 // Use the API-aligned Task type (not the mock from data.ts)
 import type { Task } from "@/app/tasks/types"
@@ -52,23 +52,92 @@ const priorityVariant: Record<string, "default" | "secondary" | "destructive" | 
   low: "secondary",
 }
 
+// ─── Rating Column (Matches Table View)
+function RatingBadge({ rating }: { rating: number | null }) {
+  if (rating === null) return <span className="text-xs text-muted-foreground">-</span>
+
+  const colorClass =
+    rating >= 75
+      ? "text-green-600 dark:text-green-400"
+      : rating >= 50
+        ? "text-yellow-600 dark:text-yellow-400"
+        : "text-red-500"
+
+  return (
+    <span className={`inline-flex items-center gap-1 text-xs font-semibold ${colorClass}`}>
+      <Star className="size-3 fill-current" />
+      {Number(rating).toFixed(1)}
+    </span>
+  )
+}
+
+// ─── Subtasks Progress (Matches Table View)
+function SubtasksProgress({
+  completed,
+  total,
+}: {
+  completed: number
+  total: number
+}) {
+  if (total === 0) {
+    return <span className="text-xs text-muted-foreground">-</span>
+  }
+
+  const pct = Math.round((completed / total) * 100)
+
+  const barColor =
+    completed === total
+      ? "bg-green-500"
+      : completed > 0
+        ? "bg-primary"
+        : "bg-muted-foreground/30"
+
+  return (
+    <div className="flex flex-col gap-1 w-full">
+      <div className="flex items-center justify-between">
+        <span className="flex items-center gap-1 text-xs text-muted-foreground">
+          <CheckSquare className="size-3" />
+          Subtasks
+        </span>
+        <span
+          className={`text-xs font-semibold ${
+            completed === total
+              ? "text-green-600 dark:text-green-400"
+              : completed > 0
+                ? "text-primary"
+                : "text-muted-foreground"
+          }`}
+        >
+          {completed}/{total}
+        </span>
+      </div>
+      <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+        <div
+          className={`h-full rounded-full transition-all ${barColor}`}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+    </div>
+  )
+}
+
 export function TaskCard({ task, onSelect, onEdit, onDelete, onRate }: TaskCardProps) {
   const { ref, style } = useTilt<HTMLDivElement>({ maxTilt: 5, scale: 1.015 })
 
   // Count completed subtasks using the API field is_complete
   const completedSubtasks = task.subtasks.filter((s) => s.is_complete).length
   const totalSubtasks = task.subtasks.length
-  const progress = totalSubtasks > 0 ? Math.round((completedSubtasks / totalSubtasks) * 100) : 0
+  
   // Resolve project name from the nested section.project relationship
-  const projectName = task.section?.project?.name ?? "—"
+  const projectName = task.section?.project?.name ?? "-"
 
   return (
-    <Card ref={ref} style={style} className="flex flex-col">
+    <Card ref={ref} style={style} className="flex flex-col group">
       <CardContent className="flex flex-col gap-4 pt-4 px-4 flex-1">
         {/* Header: Status + Priority + Actions */}
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-2 flex-wrap">
-            <Badge variant={statusVariant[task.status] ?? "outline"} className="text-[10px]">
+            <Badge variant={statusVariant[task.status] ?? "outline"} className="text-[10px] whitespace-nowrap">
               {statusLabel[task.status] ?? task.status}
             </Badge>
             <Badge variant={priorityVariant[task.priority] ?? "outline"} className="text-[10px] capitalize">
@@ -77,11 +146,15 @@ export function TaskCard({ task, onSelect, onEdit, onDelete, onRate }: TaskCardP
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon-xs">
-                <MoreHorizontal className="size-3.5" />
+              <Button variant="ghost" size="icon-sm" className="opacity-0 group-hover:opacity-100 transition-opacity">
+                <MoreHorizontal className="size-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => onSelect(task)}>
+                <Eye className="size-4" />
+                View Details
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => onRate(task)}>
                 <Star className="size-4" />
                 Rate
@@ -99,78 +172,61 @@ export function TaskCard({ task, onSelect, onEdit, onDelete, onRate }: TaskCardP
         </div>
 
         {/* Title + Project */}
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-0.5">
           <button
             type="button"
-            className="text-lg font-semibold text-foreground hover:text-primary hover:underline underline-offset-2 transition-colors text-left leading-tight"
+            className="text-lg font-semibold text-foreground hover:text-primary hover:underline underline-offset-2 transition-colors text-left leading-tight line-clamp-2"
             onClick={() => onSelect(task)}
           >
             {task.name}
           </button>
-          <span className="text-xs text-muted-foreground">{projectName}</span>
+          <div className="flex items-center justify-between mt-1">
+            <span className="text-xs text-muted-foreground font-mono">#{task.id}</span>
+            <Badge variant="secondary" className="text-[10px] max-w-[120px] truncate">
+              {projectName}
+            </Badge>
+          </div>
         </div>
 
-        {/* Progress */}
-        {totalSubtasks > 0 && (
-          <div className="flex items-center gap-3">
-            <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
-              <div
-                className="h-full bg-primary rounded-full transition-all"
-                style={{ width: `${progress}%` }}
-              />
+        {/* Subtasks Progress */}
+        <div className="py-1">
+          <SubtasksProgress completed={completedSubtasks} total={totalSubtasks} />
+        </div>
+
+        {/* Members + Date + Rating */}
+        <div className="flex items-center justify-between mt-auto pt-2">
+          <div className="flex flex-col gap-2">
+            <div className="flex -space-x-2">
+              {task.assigned_users.slice(0, 3).map((user) => (
+                <Avatar key={user.id} className="size-7 border-2 border-card">
+                  <AvatarImage src={user.avatar_url ?? undefined} alt={user.name} />
+                  <AvatarFallback className="text-[9px]">{getInitials(user.name)}</AvatarFallback>
+                </Avatar>
+              ))}
+              {task.assigned_users.length > 3 && (
+                <div className="size-7 rounded-full border-2 border-card bg-muted flex items-center justify-center text-[9px] font-bold text-muted-foreground">
+                  +{task.assigned_users.length - 3}
+                </div>
+              )}
+              {task.assigned_users.length === 0 && (
+                <span className="text-xs text-muted-foreground">-</span>
+              )}
             </div>
-            <span className="text-xs font-mono text-muted-foreground">{progress}%</span>
-          </div>
-        )}
-
-        {/* Final rating score (0–100) from the latest rating, shown when available */}
-        {task.latest_final_rating !== null ? (
-          <div className="flex items-center gap-1.5 text-xs font-semibold">
-            <Star className="size-3.5 fill-primary text-primary" />
-            <span>{task.latest_final_rating.toFixed(1)}</span>
-            <span className="text-muted-foreground font-normal">/ 100</span>
-          </div>
-        ) : (
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Star className="size-3.5 text-muted-foreground/30" />
-            Not rated
-          </div>
-        )}
-
-        {/* Members + Date */}
-        <div className="flex items-center justify-between">
-          <div className="flex -space-x-2">
-            {task.assigned_users.slice(0, 3).map((user) => (
-              <Avatar key={user.id} className="size-6 border-2 border-card">
-                <AvatarImage src={user.avatar_url ?? undefined} alt={user.name} />
-                <AvatarFallback className="text-[8px]">{getInitials(user.name)}</AvatarFallback>
-              </Avatar>
-            ))}
-            {task.assigned_users.length > 3 && (
-              <div className="size-6 rounded-full border-2 border-card bg-muted flex items-center justify-center text-[8px] font-bold text-muted-foreground">
-                +{task.assigned_users.length - 3}
-              </div>
+            {task.due_date && (
+              <span className="text-xs text-muted-foreground flex items-center gap-1 font-mono whitespace-nowrap">
+                <Calendar className="size-3" />
+                {task.due_date}
+              </span>
             )}
           </div>
-          <span className="text-xs text-muted-foreground flex items-center gap-1">
-            <Calendar className="size-3" />
-            {task.due_date}
-          </span>
+          <div className="flex flex-col items-end gap-2">
+             <div className="flex flex-col items-end gap-1">
+                <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Rating</span>
+                <RatingBadge rating={task.latest_final_rating} />
+             </div>
+          </div>
         </div>
       </CardContent>
-
-      <CardFooter className="flex items-center gap-3 w-full mt-auto">
-        <Button variant="secondary" size="lg" className="flex-1 py-2" onClick={() => onEdit(task)}>
-          <Pencil className="size-3.5" />
-          Edit
-        </Button>
-        <Button variant="outline" size="icon-lg" onClick={() => onRate(task)}>
-          <Star className="size-3.5" />
-        </Button>
-        <Button variant="destructive" size="icon-lg" onClick={() => onDelete(task)}>
-          <Trash2 className="size-3.5" />
-        </Button>
-      </CardFooter>
     </Card>
   )
 }

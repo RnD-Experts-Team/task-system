@@ -36,10 +36,20 @@ class SectionService {
     await apiClient.delete(`/sections/${sectionId}`)
   }
 
-  // Fetch all tasks belonging to a specific section
+  // Fetch all tasks belonging to a specific section (basic, no assignment data)
   async getTasksBySection(sectionId: number): Promise<SectionTask[]> {
     const response = await apiClient.get<SectionTask[]>(
       `/sections/${sectionId}/tasks`
+    )
+    return response.data
+  }
+
+  // Fetch all tasks for a section WITH user assignment data (pivot percentage).
+  // Uses GET /sections/{sectionId}/tasks-with-assignments — the richer endpoint
+  // that eager-loads assignedUsers so each task includes an assigned_users array.
+  async getTasksWithAssignments(sectionId: number): Promise<SectionTask[]> {
+    const response = await apiClient.get<SectionTask[]>(
+      `/sections/${sectionId}/tasks-with-assignments`
     )
     return response.data
   }

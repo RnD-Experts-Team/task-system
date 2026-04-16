@@ -16,6 +16,12 @@ import { Pencil, Shield, Code } from "lucide-react"
 import type { User } from "@/app/users/data"
 import { useUsers } from "@/hooks/useUsers"
 import { UserRolesPermissions } from "@/app/users/pages/user-roles-permissions"
+// Sections rendered inside the Overview tab
+import { UserProjects }                from "@/app/users/pages/user-projects"
+import { UserTaskAssignments }         from "@/app/users/pages/user-task-assignments"
+// Two new help-request sections for requests submitted by this user and requests where they assist
+import { UserRequestedHelpRequests }   from "@/app/users/pages/user-requested-help-requests"
+import { UserHelperHelpRequests }      from "@/app/users/pages/user-helper-help-requests"
 
 type UserDetailSheetProps = {
   /** The user whose details should be fetched (only `id` is needed) */
@@ -47,7 +53,16 @@ const statusVariant: Record<string, "default" | "secondary" | "destructive" | "o
 }
 
 export function UserDetailSheet({ user, open, onOpenChange, onEdit }: UserDetailSheetProps) {
-  const { selectedUser, selectedLoading, getUser } = useUsers()
+  const {
+    selectedUser,
+    selectedLoading,
+    getUser,
+    clearUserProjects,
+    clearUserTaskAssignments,
+    // Actions to clear the two new help-request slices on sheet close
+    clearUserRequestedHelpRequests,
+    clearUserHelperHelpRequests,
+  } = useUsers()
 
   // Fetch full details whenever the sheet opens with a user
   useEffect(() => {
@@ -57,13 +72,25 @@ export function UserDetailSheet({ user, open, onOpenChange, onEdit }: UserDetail
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, user?.id])
 
+  // When the sheet closes, clear all per-user data so the next user
+  // always starts with a fresh fetch (no stale rows from the previous user).
+  useEffect(() => {
+    if (!open) {
+      clearUserProjects()
+      clearUserTaskAssignments()
+      clearUserRequestedHelpRequests()
+      clearUserHelperHelpRequests()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
+
   // Use the fetched detail when available, otherwise fall back to the row data
   const detail = selectedUser ?? user
   if (!detail) return null
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="max-w-full md:max-w-[50vw] overflow-y-auto themed-scrollbar">
+      <SheetContent side="right" className="data-[side=right]:sm:max-w-full overflow-y-auto themed-scrollbar">
         {/* Loading skeleton while the detail request is in-flight */}
         {selectedLoading ? (
           <div className="flex flex-col items-center gap-4 py-10 px-8">
@@ -142,6 +169,26 @@ export function UserDetailSheet({ user, open, onOpenChange, onEdit }: UserDetail
                       </p>
                     </div>
                   </div>
+
+                  <Separator />
+
+                  {/* Projects where this user is the stakeholder */}
+                  <UserProjects userId={detail.id} />
+
+                  <Separator />
+
+                  {/* Tasks assigned to this user */}
+                  <UserTaskAssignments userId={detail.id} />
+
+                  <Separator />
+
+                  {/* Help requests submitted by this user (they are the requester) */}
+                  <UserRequestedHelpRequests userId={detail.id} />
+
+                  <Separator />
+
+                  {/* Help requests where this user is the assigned helper */}
+                  <UserHelperHelpRequests userId={detail.id} />
 
                   <Separator />
 

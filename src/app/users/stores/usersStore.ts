@@ -6,9 +6,13 @@ import {
   type CreateUserPayload,
   type UpdateUserPayload,
   type UserRolesAndPermissions,
+  type UserProject,
+  type UserTaskAssignment,
 } from "@/services/usersService"
 import type { User } from "@/app/users/data"
 import type { ApiValidationError } from "@/types"
+// Re-use help-request types for the two new user/help-request endpoints
+import type { HelpRequest, HelpRequestPagination } from "@/app/help-requests/types"
 
 // ─── Helper: extract a user-friendly error from Axios errors ──────────────────
 function extractErrorMessage(err: unknown, fallback: string): string {
@@ -53,6 +57,44 @@ interface UsersState {
   rolesPermissionsError: string | null
   /** True while a sync (roles/permissions/both) is in-flight */
   syncingRolesPermissions: boolean
+
+  // ── User Projects (stakeholder) state ────────────────────────────────────
+  /** Projects where the user is stakeholder (paginated) */
+  userProjects: UserProject[] | null
+  /** Pagination metadata for the userProjects list */
+  userProjectsPagination: UsersPaginationMeta | null
+  /** True while fetching user projects */
+  userProjectsLoading: boolean
+  /** Error from the last userProjects fetch */
+  userProjectsError: string | null
+
+  // ── User Task Assignments state ──────────────────────────────────────────
+  /** Tasks assigned to the user (full collection, not paginated) */
+  userTaskAssignments: UserTaskAssignment[] | null
+  /** True while fetching user task assignments */
+  userTaskAssignmentsLoading: boolean
+  /** Error from the last userTaskAssignments fetch */
+  userTaskAssignmentsError: string | null
+
+  // ── Help requests requested by this user ──────────────────────────────────
+  /** Paginated list of help requests the user has submitted as requester */
+  userRequestedHelpRequests: HelpRequest[] | null
+  /** Pagination metadata for the requested help-requests list */
+  userRequestedHelpRequestsPagination: HelpRequestPagination | null
+  /** True while fetching requested help requests */
+  userRequestedHelpRequestsLoading: boolean
+  /** Error from the last requested help-requests fetch */
+  userRequestedHelpRequestsError: string | null
+
+  // ── Help requests where this user is the assigned helper ──────────────────
+  /** Paginated list of help requests the user is assigned to as a helper */
+  userHelperHelpRequests: HelpRequest[] | null
+  /** Pagination metadata for the helper help-requests list */
+  userHelperHelpRequestsPagination: HelpRequestPagination | null
+  /** True while fetching helper help requests */
+  userHelperHelpRequestsLoading: boolean
+  /** Error from the last helper help-requests fetch */
+  userHelperHelpRequestsError: string | null
 }
 
 // ─── Actions shape ────────────────────────────────────────────────────────────
@@ -84,6 +126,30 @@ interface UsersActions {
   syncRolesAndPermissions: (userId: string, roles: string[], permissions: string[]) => Promise<boolean>
   /** Clear roles-and-permissions error */
   clearRolesPermissionsError: () => void
+
+  // ── User Projects actions ────────────────────────────────────────────────
+  /** Fetch a page of projects where the user is stakeholder */
+  fetchUserProjects: (userId: string, page?: number) => Promise<void>
+  /** Reset user projects (e.g. when the selected user changes) */
+  clearUserProjects: () => void
+
+  // ── User Task Assignments actions ────────────────────────────────────────
+  /** Fetch all task assignments for a user */
+  fetchUserTaskAssignments: (userId: string) => Promise<void>
+  /** Reset task assignments (e.g. when the selected user changes) */
+  clearUserTaskAssignments: () => void
+
+  // ── Requested help-requests actions ──────────────────────────────────────
+  /** Fetch a page of help requests submitted by this user */
+  fetchUserRequestedHelpRequests: (userId: string, page?: number) => Promise<void>
+  /** Reset requested help requests (e.g. when the selected user changes) */
+  clearUserRequestedHelpRequests: () => void
+
+  // ── Helper help-requests actions ──────────────────────────────────────────
+  /** Fetch a page of help requests where this user is the assigned helper */
+  fetchUserHelperHelpRequests: (userId: string, page?: number) => Promise<void>
+  /** Reset helper help requests (e.g. when the selected user changes) */
+  clearUserHelperHelpRequests: () => void
 }
 
 type UsersStore = UsersState & UsersActions
@@ -104,6 +170,29 @@ export const useUsersStore = create<UsersStore>()((set, get) => ({
   rolesPermissionsLoading: false,
   rolesPermissionsError: null,
   syncingRolesPermissions: false,
+
+  // ── initial state: user projects ──────────────────────────────────────────
+  userProjects: null,
+  userProjectsPagination: null,
+  userProjectsLoading: false,
+  userProjectsError: null,
+
+  // ── initial state: user task assignments ──────────────────────────────────
+  userTaskAssignments: null,
+  userTaskAssignmentsLoading: false,
+  userTaskAssignmentsError: null,
+
+  // ── initial state: requested help requests ────────────────────────────────
+  userRequestedHelpRequests: null,
+  userRequestedHelpRequestsPagination: null,
+  userRequestedHelpRequestsLoading: false,
+  userRequestedHelpRequestsError: null,
+
+  // ── initial state: helper help requests ───────────────────────────────────
+  userHelperHelpRequests: null,
+  userHelperHelpRequestsPagination: null,
+  userHelperHelpRequestsLoading: false,
+  userHelperHelpRequestsError: null,
 
   // ── list action ────────────────────────────────────────────────────────────
 
@@ -276,4 +365,119 @@ export const useUsersStore = create<UsersStore>()((set, get) => ({
       set({ syncingRolesPermissions: false })
     }
   },
+
+  // ── User Projects actions ──────────────────────────────────────────────────
+
+  // Fetch a page of projects where this user is the stakeholder.
+  // Clears previous data before each fresh fetch.
+  fetchUserProjects: async (userId: string, page = 1) => {
+    set({ userProjectsLoading: true, userProjectsError: null })
+
+    try {
+      const { projects, pagination } = await usersService.getUserProjects(userId, page)
+      set({ userProjects: projects, userProjectsPagination: pagination })
+    } catch (err) {
+      if (!isCancel(err)) {
+        set({ userProjectsError: extractErrorMessage(err, "Failed to load user projects.") })
+      }
+    } finally {
+      set({ userProjectsLoading: false })
+    }
+  },
+
+  // Reset user projects — call when the active user in the sheet changes
+  clearUserProjects: () =>
+    set({ userProjects: null, userProjectsPagination: null, userProjectsError: null }),
+
+  // ── User Task Assignments actions ──────────────────────────────────────────
+
+  // Fetch the full list of task assignments for this user (collection, not paginated).
+  fetchUserTaskAssignments: async (userId: string) => {
+    set({ userTaskAssignmentsLoading: true, userTaskAssignmentsError: null })
+
+    try {
+      const assignments = await usersService.getUserTaskAssignments(userId)
+      set({ userTaskAssignments: assignments })
+    } catch (err) {
+      if (!isCancel(err)) {
+        set({ userTaskAssignmentsError: extractErrorMessage(err, "Failed to load task assignments.") })
+      }
+    } finally {
+      set({ userTaskAssignmentsLoading: false })
+    }
+  },
+
+  // Reset task assignments — call when the active user in the sheet changes
+  clearUserTaskAssignments: () =>
+    set({ userTaskAssignments: null, userTaskAssignmentsError: null }),
+
+  // ── Requested help-requests actions ────────────────────────────────────────
+
+  // Fetch a page of help requests submitted by this user (as requester).
+  fetchUserRequestedHelpRequests: async (userId: string, page = 1) => {
+    set({ userRequestedHelpRequestsLoading: true, userRequestedHelpRequestsError: null })
+
+    try {
+      const { helpRequests, pagination } =
+        await usersService.getUserRequestedHelpRequests(userId, page)
+      set({
+        userRequestedHelpRequests: helpRequests,
+        userRequestedHelpRequestsPagination: pagination,
+      })
+    } catch (err) {
+      if (!isCancel(err)) {
+        set({
+          userRequestedHelpRequestsError: extractErrorMessage(
+            err,
+            "Failed to load requested help requests.",
+          ),
+        })
+      }
+    } finally {
+      set({ userRequestedHelpRequestsLoading: false })
+    }
+  },
+
+  // Reset requested help requests — call when the active user in the sheet changes
+  clearUserRequestedHelpRequests: () =>
+    set({
+      userRequestedHelpRequests: null,
+      userRequestedHelpRequestsPagination: null,
+      userRequestedHelpRequestsError: null,
+    }),
+
+  // ── Helper help-requests actions ────────────────────────────────────────────
+
+  // Fetch a page of help requests where this user is the assigned helper.
+  fetchUserHelperHelpRequests: async (userId: string, page = 1) => {
+    set({ userHelperHelpRequestsLoading: true, userHelperHelpRequestsError: null })
+
+    try {
+      const { helpRequests, pagination } =
+        await usersService.getUserHelperHelpRequests(userId, page)
+      set({
+        userHelperHelpRequests: helpRequests,
+        userHelperHelpRequestsPagination: pagination,
+      })
+    } catch (err) {
+      if (!isCancel(err)) {
+        set({
+          userHelperHelpRequestsError: extractErrorMessage(
+            err,
+            "Failed to load helper assignments.",
+          ),
+        })
+      }
+    } finally {
+      set({ userHelperHelpRequestsLoading: false })
+    }
+  },
+
+  // Reset helper help requests — call when the active user in the sheet changes
+  clearUserHelperHelpRequests: () =>
+    set({
+      userHelperHelpRequests: null,
+      userHelperHelpRequestsPagination: null,
+      userHelperHelpRequestsError: null,
+    }),
 }))

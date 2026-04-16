@@ -6,11 +6,13 @@ import { Button } from "@/components/ui/button"
 import { ArrowLeft, Calendar, CheckSquare } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { KanbanData, KanbanTask, KanbanSectionData } from "../types"
+import { projectService } from "../services/projectService"
 import {
   DndContext,
   DragOverlay,
   closestCenter,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   useDroppable,
@@ -215,7 +217,7 @@ function KanbanColumnView({
     <div
       ref={setDroppableRef}
       className={cn(
-        "flex flex-col min-w-70 max-w-[320px] w-full bg-card/50 rounded-xl border border-border/50",
+        "flex flex-col min-w-[280px] max-w-[320px] w-full bg-card/50 rounded-xl border border-border/50",
         showOver ? "ring-2 ring-primary/30 shadow-lg" : "",
       )}
     >
@@ -253,7 +255,8 @@ export function KanbanBoard({ kanban, onBack }: KanbanBoardProps) {
   const [hoveredColumn, setHoveredColumn] = useState<string | null>(null)
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } })
   )
 
   // Find the task being dragged across all sections/columns
@@ -343,6 +346,29 @@ export function KanbanBoard({ kanban, onBack }: KanbanBoardProps) {
 
       if (dstCi === -1 || dstSi === -1) return prev
 
+      const srcCol = prev[srcSi].columns[srcCi]
+      const dstCol = prev[dstSi].columns[dstCi]
+      const task = srcCol.tasks[srcTi]
+
+      // Fire API calls for what actually changed
+      // Column id format: "col-{sectionId}-{status}"
+      const srcSectionId = Number(srcCol.id.split("-")[1])
+      const dstSectionId = Number(dstCol.id.split("-")[1])
+      const statusChanged = srcCol.status !== dstCol.status
+      const sectionChanged = srcSectionId !== dstSectionId
+
+      if (sectionChanged) {
+        projectService.moveTaskSection(task.id, dstSectionId).catch(() => {
+          // Errors are silent for now; the optimistic update stays
+        })
+      }
+      if (statusChanged) {
+        projectService.moveTaskStatus(
+          task.id,
+          dstCol.status as KanbanTask["status"],
+        ).catch(() => {})
+      }
+
       // Clone sections and move the task
       const next = prev.map((s) => ({
         ...s,
@@ -350,7 +376,12 @@ export function KanbanBoard({ kanban, onBack }: KanbanBoardProps) {
       }))
 
       const [moved] = next[srcSi].columns[srcCi].tasks.splice(srcTi, 1)
-      next[dstSi].columns[dstCi].tasks.splice(dstTi, 0, moved)
+      // Update the task's status/section_id in the moved copy
+      next[dstSi].columns[dstCi].tasks.splice(dstTi, 0, {
+        ...moved,
+        status: dstCol.status as KanbanTask["status"],
+        section_id: dstSectionId,
+      })
       return next
     })
   }, [])

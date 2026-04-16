@@ -14,6 +14,9 @@ import type {
   TaskSubtaskListApiResponse,
   TaskHelpRequestListApiResponse,
   TaskRatingListApiResponse,
+  Subtask,
+  CreateSubtaskPayload,
+  UpdateSubtaskPayload,
 } from "../types"
 
 // Converts TaskListParams to a plain object safe to pass as Axios params.
@@ -259,6 +262,66 @@ class TaskService {
     })) as unknown as TaskRatingListApiResponse
     return raw
   }
+
+  // ─── Subtask CRUD Endpoints ───────────────────────────────────
+
+  /**
+   * GET /subtasks/{id}
+   * Returns the full details of a single subtask by its ID.
+   * Used when the user clicks "View" on a subtask row.
+   */
+  async getSubtaskById(id: number): Promise<Subtask> {
+    const response = await apiClient.get<Subtask>(`/subtasks/${id}`)
+    return response.data
+  }
+
+  /**
+   * POST /subtasks
+   * Creates a new subtask linked to the given task_id.
+   * Returns the created subtask on success (201).
+   */
+  async createSubtask(payload: CreateSubtaskPayload): Promise<Subtask> {
+    const response = await apiClient.post<Subtask>("/subtasks", payload, {
+      toast: { success: "Subtask created" },
+    } as never)
+    return response.data
+  }
+
+  /**
+   * PUT /subtasks/{id}
+   * Updates an existing subtask. Only provided fields are changed.
+   * Returns the updated subtask.
+   */
+  async updateSubtask(id: number, payload: UpdateSubtaskPayload): Promise<Subtask> {
+    const response = await apiClient.put<Subtask>(`/subtasks/${id}`, payload, {
+      toast: { success: "Subtask updated" },
+    } as never)
+    return response.data
+  }
+
+  /**
+   * DELETE /subtasks/{id}
+   * Permanently removes a subtask.
+   * Toast success is shown automatically.
+   */
+  async deleteSubtask(id: number): Promise<void> {
+    await apiClient.delete(`/subtasks/${id}`, {
+      toast: { success: "Subtask deleted" },
+    } as never)
+  }
+
+  /**
+   * POST /subtasks/{id}/toggle
+   * Flips the is_complete flag of a subtask (true → false or false → true).
+   * Returns the updated subtask with the new completion status.
+   */
+  async toggleSubtask(id: number): Promise<Subtask> {
+    const response = await apiClient.post<Subtask>(`/subtasks/${id}/toggle`, {}, {
+      toast: { success: "Subtask updated" },
+    } as never)
+    return response.data
+  }
 }
 
+// Singleton instance exported for use throughout the app
 export const taskService = new TaskService()

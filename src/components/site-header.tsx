@@ -6,8 +6,9 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { ChevronDown } from "lucide-react"
 import { useState } from "react"
 import { useAuthStore } from "@/app/(auth)/stores/authStore"
+import { AppBreadcrumbs } from "@/components/app-breadcrumbs"
 
-export function SiteHeader({ title = "Dashboard" }: { title?: string }) {
+export function SiteHeader() {
   const [isAccountOpen, setIsAccountOpen] = useState(false)
   const user = useAuthStore((s) => s.user)
 
@@ -30,7 +31,7 @@ export function SiteHeader({ title = "Dashboard" }: { title?: string }) {
           className="mx-2 data-[orientation=vertical]:h-4"
         />
         <div className="flex-1 min-w-0">
-          <h1 className="text-lg font-semibold text-foreground truncate">{title}</h1>
+          <AppBreadcrumbs />
         </div>
       </div>
 

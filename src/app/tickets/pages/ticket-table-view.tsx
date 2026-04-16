@@ -1,3 +1,8 @@
+// ─── Ticket Table View ────────────────────────────────────────────────────────
+// Renders API tickets in a responsive table. Visible columns collapse at smaller
+// breakpoints so the table stays usable on narrow screens.
+// Includes all quick actions: Edit, Assign, Unassign, Complete, Status, Delete.
+
 import {
   Table,
   TableBody,
@@ -23,18 +28,35 @@ import {
   Eye,
   UserRoundPlus,
   UserRoundX,
+  UserCheck,
+  CheckCircle2,
+  ArrowUpDown,
 } from "lucide-react"
-import type { Ticket } from "@/app/tickets/data"
+// Import API-aligned type and display helpers from the tickets types module
+import type { ApiTicket } from "@/app/tickets/types"
+import {
+  TICKET_STATUS_LABELS,
+  TICKET_STATUS_VARIANTS,
+  TICKET_TYPE_LABELS,
+  TICKET_PRIORITY_LABELS,
+  TICKET_PRIORITY_VARIANTS,
+  formatTicketDate,
+} from "@/app/tickets/types"
 
 type TicketTableViewProps = {
-  tickets: Ticket[]
-  onSelect: (ticket: Ticket) => void
-  onEdit: (ticket: Ticket) => void
-  onDelete: (ticket: Ticket) => void
-  onClaim: (ticket: Ticket) => void
-  onUnclaim: (ticket: Ticket) => void
+  tickets: ApiTicket[]
+  onSelect: (ticket: ApiTicket) => void
+  onEdit: (ticket: ApiTicket) => void
+  onDelete: (ticket: ApiTicket) => void
+  // Quick-action callbacks — all provided from the parent page
+  onAssign?: (ticket: ApiTicket) => void
+  onUnassign?: (ticket: ApiTicket) => void
+  onComplete?: (ticket: ApiTicket) => void
+  onStatusChange?: (ticket: ApiTicket) => void
+  onClaim?: (ticket: ApiTicket) => void
 }
 
+// Extract initials from a full name for avatar fallbacks
 function getInitials(name: string) {
   return name
     .split(" ")
@@ -43,208 +65,230 @@ function getInitials(name: string) {
     .toUpperCase()
 }
 
-const statusLabel: Record<string, string> = {
-  open: "Open",
-  "in-progress": "In Progress",
-  closed: "Closed",
-}
-
-const statusVariant: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
-  open: "outline",
-  "in-progress": "default",
-  closed: "secondary",
-}
-
-const priorityLabel: Record<string, string> = {
-  low: "Low",
-  medium: "Medium",
-  high: "High",
-}
-
-const priorityVariant: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
-  low: "secondary",
-  medium: "outline",
-  high: "destructive",
-}
-
-const typeLabel: Record<string, string> = {
-  bug: "Bug",
-  feature: "Feature",
-  task: "Task",
-  support: "Support",
-}
-
 export function TicketTableView({
   tickets,
   onSelect,
   onEdit,
   onDelete,
+  onAssign,
+  onUnassign,
+  onComplete,
+  onStatusChange,
   onClaim,
-  onUnclaim,
 }: TicketTableViewProps) {
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead className="w-8">ID</TableHead>
-          <TableHead>Title</TableHead>
-          <TableHead className="hidden lg:table-cell">Description</TableHead>
-          <TableHead className="hidden md:table-cell">Type</TableHead>
-          <TableHead>Status</TableHead>
-          <TableHead>Priority</TableHead>
-          <TableHead className="hidden xl:table-cell">Requester</TableHead>
-          <TableHead className="hidden xl:table-cell">Assignee</TableHead>
-          <TableHead className="hidden lg:table-cell">Created</TableHead>
-          <TableHead className="text-right">Actions</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {tickets.length === 0 && (
+    // Wrap in overflow-x-auto so the table stays scrollable on small screens
+    <div className="w-full overflow-x-auto rounded-md border">
+      <Table>
+        <TableHeader>
           <TableRow>
-            <TableCell colSpan={10} className="h-24 text-center text-sm text-muted-foreground">
-              No tickets found.
-            </TableCell>
+            <TableHead className="w-12">ID</TableHead>
+            <TableHead>Title</TableHead>
+            <TableHead className="hidden lg:table-cell">Description</TableHead>
+            {/* Type hidden below md to save space */}
+            <TableHead className="hidden md:table-cell">Type</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead>Priority</TableHead>
+            {/* Requester / Assignee hidden below xl */}
+            <TableHead className="hidden xl:table-cell">Requester</TableHead>
+            <TableHead className="hidden xl:table-cell">Assignee</TableHead>
+            <TableHead className="hidden lg:table-cell">Created</TableHead>
+            <TableHead className="text-right">Actions</TableHead>
           </TableRow>
-        )}
-        {tickets.map((ticket) => (
-          <TableRow key={ticket.id} className="group">
-            {/* ID */}
-            <TableCell className="py-3">
-              <span className="text-xs font-mono text-muted-foreground">{ticket.id}</span>
-            </TableCell>
+        </TableHeader>
+        <TableBody>
+          {/* Empty state */}
+          {tickets.length === 0 && (
+            <TableRow>
+              <TableCell colSpan={10} className="h-24 text-center text-sm text-muted-foreground">
+                No tickets found.
+              </TableCell>
+            </TableRow>
+          )}
 
-            {/* Title */}
-            <TableCell className="py-3 max-w-45">
-              <div className="relative overflow-hidden">
-                <button
-                  type="button"
-                  className="font-medium text-foreground text-sm hover:text-primary hover:underline underline-offset-2 transition-colors w-full text-left line-clamp-2"
-                  onClick={() => onSelect(ticket)}
-                >
-                  {ticket.title}
-                </button>
-                <div className="pointer-events-none absolute inset-y-0 right-0 w-12">
-                  <div className="h-full w-full bg-linear-to-l from-background via-background/70 to-transparent backdrop-blur-[1px]" />
-                </div>
-              </div>
-            </TableCell>
+          {tickets.map((ticket) => (
+            <TableRow key={ticket.id} className="group">
+              {/* ID — backend returns a numeric id */}
+              <TableCell className="py-3">
+                <span className="text-xs font-mono text-muted-foreground">#{ticket.id}</span>
+              </TableCell>
 
-            {/* Description */}
-            <TableCell className="py-3 max-w-65 hidden lg:table-cell">
-              <div className="relative overflow-hidden">
-                <p className="text-sm text-muted-foreground line-clamp-2">
-                  {ticket.description}
-                </p>
-                <div className="pointer-events-none absolute inset-y-0 right-0 w-14">
-                  <div className="h-full w-full bg-linear-to-l from-background via-background/60 to-transparent backdrop-blur-[1px]" />
-                </div>
-              </div>
-            </TableCell>
-
-            {/* Type */}
-            <TableCell className="py-3 hidden md:table-cell">
-              <span className="text-sm text-muted-foreground capitalize">
-                {typeLabel[ticket.type] ?? ticket.type}
-              </span>
-            </TableCell>
-
-            {/* Status */}
-            <TableCell className="py-3">
-              <Badge variant={statusVariant[ticket.status] ?? "outline"}>
-                {statusLabel[ticket.status] ?? ticket.status}
-              </Badge>
-            </TableCell>
-
-            {/* Priority */}
-            <TableCell className="py-3">
-              <Badge variant={priorityVariant[ticket.priority] ?? "outline"}>
-                {priorityLabel[ticket.priority] ?? ticket.priority}
-              </Badge>
-            </TableCell>
-
-            {/* Requester */}
-            <TableCell className="py-3 hidden xl:table-cell">
-              <div className="flex items-center gap-2">
-                <Avatar className="size-7 border-2 border-card">
-                  <AvatarImage src={ticket.requester.avatarUrl} alt={ticket.requester.name} />
-                  <AvatarFallback className="text-[8px]">
-                    {getInitials(ticket.requester.name)}
-                  </AvatarFallback>
-                </Avatar>
-                <span className="text-sm">{ticket.requester.name}</span>
-              </div>
-            </TableCell>
-
-            {/* Assignee */}
-            <TableCell className="py-3 hidden xl:table-cell">
-              {ticket.assignee ? (
-                <div className="flex items-center gap-2">
-                  <Avatar className="size-7 border-2 border-card">
-                    <AvatarImage src={ticket.assignee.avatarUrl} alt={ticket.assignee.name} />
-                    <AvatarFallback className="text-[8px]">
-                      {getInitials(ticket.assignee.name)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <span className="text-sm">{ticket.assignee.name}</span>
-                </div>
-              ) : (
-                <span className="text-sm text-muted-foreground">Unassigned</span>
-              )}
-            </TableCell>
-
-            {/* Created */}
-            <TableCell className="py-3 hidden lg:table-cell">
-              <span className="text-sm text-muted-foreground">{ticket.createdAt}</span>
-            </TableCell>
-
-            {/* Actions */}
-            <TableCell className="py-3 text-right">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="size-8 opacity-0 group-hover:opacity-100 transition-opacity"
+              {/* Title — clickable to open the detail sheet */}
+              <TableCell className="py-3 max-w-45">
+                <div className="relative overflow-hidden">
+                  <button
+                    type="button"
+                    className="font-medium text-foreground text-sm hover:text-primary hover:underline underline-offset-2 transition-colors w-full text-left line-clamp-2"
+                    onClick={() => onSelect(ticket)}
                   >
-                    <MoreHorizontal className="size-4" />
-                    <span className="sr-only">Open actions</span>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-44">
-                  <DropdownMenuItem onClick={() => onSelect(ticket)}>
-                    <Eye className="size-4 mr-2" />
-                    View
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => onEdit(ticket)}>
-                    <Pencil className="size-4 mr-2" />
-                    Edit
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  {ticket.assignee ? (
-                    <DropdownMenuItem onClick={() => onUnclaim(ticket)}>
-                      <UserRoundX className="size-4 mr-2" />
-                      Unclaim
+                    {ticket.title}
+                  </button>
+                  <div className="pointer-events-none absolute inset-y-0 right-0 w-12">
+                    <div className="h-full w-full bg-linear-to-l from-background via-background/70 to-transparent backdrop-blur-[1px]" />
+                  </div>
+                </div>
+              </TableCell>
+
+              {/* Description — truncated with fade overlay */}
+              <TableCell className="py-3 max-w-65 hidden lg:table-cell">
+                <div className="relative overflow-hidden">
+                  <p className="text-sm text-muted-foreground line-clamp-2">
+                    {ticket.description}
+                  </p>
+                  <div className="pointer-events-none absolute inset-y-0 right-0 w-14">
+                    <div className="h-full w-full bg-linear-to-l from-background via-background/60 to-transparent backdrop-blur-[1px]" />
+                  </div>
+                </div>
+              </TableCell>
+
+              {/* Type — maps backend enum key to human label */}
+              <TableCell className="py-3 hidden md:table-cell">
+                <span className="text-sm text-muted-foreground">
+                  {TICKET_TYPE_LABELS[ticket.type] ?? ticket.type}
+                </span>
+              </TableCell>
+
+              {/* Status badge */}
+              <TableCell className="py-3">
+                <Badge variant={TICKET_STATUS_VARIANTS[ticket.status] ?? "outline"}>
+                  {TICKET_STATUS_LABELS[ticket.status] ?? ticket.status}
+                </Badge>
+              </TableCell>
+
+              {/* Priority badge */}
+              <TableCell className="py-3">
+                <Badge variant={TICKET_PRIORITY_VARIANTS[ticket.priority] ?? "outline"}>
+                  {TICKET_PRIORITY_LABELS[ticket.priority] ?? ticket.priority}
+                </Badge>
+              </TableCell>
+
+              {/* Requester — uses avatar_url from backend User relation */}
+              <TableCell className="py-3 hidden xl:table-cell">
+                {ticket.requester ? (
+                  <div className="flex items-center gap-2">
+                    <Avatar className="size-7 border-2 border-card">
+                      <AvatarImage
+                        src={ticket.requester.avatar_url ?? undefined}
+                        alt={ticket.requester.name}
+                      />
+                      <AvatarFallback className="text-[8px]">
+                        {getInitials(ticket.requester.name)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="text-sm">{ticket.requester.name}</span>
+                  </div>
+                ) : (
+                  // Fallback to requester_name if relation was not loaded
+                  <span className="text-sm text-muted-foreground">{ticket.requester_name}</span>
+                )}
+              </TableCell>
+
+              {/* Assignee — null means unassigned */}
+              <TableCell className="py-3 hidden xl:table-cell">
+                {ticket.assignee ? (
+                  <div className="flex items-center gap-2">
+                    <Avatar className="size-7 border-2 border-card">
+                      <AvatarImage
+                        src={ticket.assignee.avatar_url ?? undefined}
+                        alt={ticket.assignee.name}
+                      />
+                      <AvatarFallback className="text-[8px]">
+                        {getInitials(ticket.assignee.name)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="text-sm">{ticket.assignee.name}</span>
+                  </div>
+                ) : (
+                  <span className="text-sm text-muted-foreground">Unassigned</span>
+                )}
+              </TableCell>
+
+              {/* Created date — formatted from ISO string */}
+              <TableCell className="py-3 hidden lg:table-cell">
+                <span className="text-sm text-muted-foreground">
+                  {formatTicketDate(ticket.created_at)}
+                </span>
+              </TableCell>
+
+              {/* Row actions dropdown */}
+              <TableCell className="py-3 text-right">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <MoreHorizontal className="size-4" />
+                      <span className="sr-only">Open actions</span>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-44">
+                    <DropdownMenuItem onClick={() => onSelect(ticket)}>
+                      <Eye className="size-4 mr-2" />
+                      View
                     </DropdownMenuItem>
-                  ) : (
-                    <DropdownMenuItem onClick={() => onClaim(ticket)}>
-                      <UserRoundPlus className="size-4 mr-2" />
-                      Claim
+                    <DropdownMenuItem onClick={() => onEdit(ticket)}>
+                      <Pencil className="size-4 mr-2" />
+                      Edit
                     </DropdownMenuItem>
-                  )}
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    className="text-destructive focus:text-destructive"
-                    onClick={() => onDelete(ticket)}
-                  >
-                    <Trash2 className="size-4 mr-2" />
-                    Delete
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </TableCell>
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+                    <DropdownMenuSeparator />
+
+                    {/* Claim — self-assign the current user (shown when unassigned) */}
+                    {onClaim && !ticket.assignee && (
+                      <DropdownMenuItem onClick={() => onClaim(ticket)}>
+                        <UserCheck className="size-4 mr-2" />
+                        Claim
+                      </DropdownMenuItem>
+                    )}
+
+                    {/* Assign — shown when ticket has no assignee */}
+                    {onAssign && !ticket.assignee && (
+                      <DropdownMenuItem onClick={() => onAssign(ticket)}>
+                        <UserRoundPlus className="size-4 mr-2" />
+                        Assign
+                      </DropdownMenuItem>
+                    )}
+
+                    {/* Unassign — shown when ticket has an assignee */}
+                    {onUnassign && ticket.assignee && (
+                      <DropdownMenuItem onClick={() => onUnassign(ticket)}>
+                        <UserRoundX className="size-4 mr-2" />
+                        Unassign
+                      </DropdownMenuItem>
+                    )}
+
+                    {/* Change status — opens status dialog */}
+                    {onStatusChange && (
+                      <DropdownMenuItem onClick={() => onStatusChange(ticket)}>
+                        <ArrowUpDown className="size-4 mr-2" />
+                        Change Status
+                      </DropdownMenuItem>
+                    )}
+
+                    {/* Complete — only when not already resolved */}
+                    {onComplete && ticket.status !== "resolved" && (
+                      <DropdownMenuItem onClick={() => onComplete(ticket)}>
+                        <CheckCircle2 className="size-4 mr-2" />
+                        Complete
+                      </DropdownMenuItem>
+                    )}
+
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      className="text-destructive focus:text-destructive"
+                      onClick={() => onDelete(ticket)}
+                    >
+                      <Trash2 className="size-4 mr-2" />
+                      Delete
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
   )
 }

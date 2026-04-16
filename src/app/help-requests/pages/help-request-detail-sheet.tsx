@@ -1,3 +1,7 @@
+// ─── HelpRequestDetailSheet ──────────────────────────────────────────────────────
+// Side sheet showing full details for a single help request.
+// Updated to use the API-aligned HelpRequest type from ../types.
+
 import {
   Sheet,
   SheetContent,
@@ -9,8 +13,10 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Button } from "@/components/ui/button"
-import { Pencil, Star, HandHelping, X } from "lucide-react"
-import type { HelpRequest } from "@/app/help-requests/data"
+import { Pencil, HandHelping, X } from "lucide-react"
+// API types replacing the old mock-data types
+import type { HelpRequest } from "@/app/help-requests/types"
+import { getDisplayStatus, helpRequestRatingLabel } from "@/app/help-requests/types"
 
 type HelpRequestDetailSheetProps = {
   request: HelpRequest | null
@@ -29,16 +35,27 @@ function getInitials(name: string) {
     .toUpperCase()
 }
 
+// Human-readable labels for derived status
 const statusLabel: Record<string, string> = {
   open: "Open",
   claimed: "Claimed",
   completed: "Completed",
 }
 
+// Badge variant per derived status
 const statusVariant: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
   open: "outline",
   claimed: "default",
   completed: "secondary",
+}
+
+// Format ISO datetime to readable date string
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  })
 }
 
 export function HelpRequestDetailSheet({
@@ -51,19 +68,23 @@ export function HelpRequestDetailSheet({
 }: HelpRequestDetailSheetProps) {
   if (!request) return null
 
+  // Derive display status from API boolean flags
+  const status = getDisplayStatus(request)
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="max-w-full md:max-w-[80vw] overflow-y-auto themed-scrollbar">
+      <SheetContent side="right" className="data-[side=right]:sm:max-w-full overflow-y-auto themed-scrollbar">
         <SheetHeader className="gap-3">
           <div className="flex items-center gap-2 flex-wrap">
-            <Badge variant={statusVariant[request.status] ?? "outline"}>
-              {statusLabel[request.status] ?? request.status}
+            <Badge variant={statusVariant[status] ?? "outline"}>
+              {statusLabel[status] ?? status}
             </Badge>
-            <span className="text-xs text-muted-foreground font-mono">{request.id.toUpperCase()}</span>
+            {/* Show numeric id from the API */}
+            <span className="text-xs text-muted-foreground font-mono">#{request.id}</span>
           </div>
           <SheetTitle className="text-2xl">Help Request Details</SheetTitle>
           <SheetDescription className="sr-only">
-            Details for help request {request.id}
+            Details for help request #{request.id}
           </SheetDescription>
         </SheetHeader>
 
@@ -77,15 +98,15 @@ export function HelpRequestDetailSheet({
               <div className="flex items-center gap-2">
                 <span
                   className={`size-2 rounded-full ${
-                    request.status === "claimed"
+                    status === "claimed"
                       ? "bg-primary animate-pulse"
-                      : request.status === "completed"
+                      : status === "completed"
                         ? "bg-green-500"
                         : "bg-muted-foreground"
                   }`}
                 />
-                <Badge variant={statusVariant[request.status] ?? "outline"}>
-                  {statusLabel[request.status] ?? request.status}
+                <Badge variant={statusVariant[status] ?? "outline"}>
+                  {statusLabel[status] ?? status}
                 </Badge>
               </div>
             </div>
@@ -93,7 +114,8 @@ export function HelpRequestDetailSheet({
               <p className="text-sm font-semibold uppercase tracking-widest text-muted-foreground mb-1">
                 Created At
               </p>
-              <p className="text-sm font-medium">{request.createdAt}</p>
+              {/* Format ISO datetime from API to readable short date */}
+              <p className="text-sm font-medium">{formatDate(request.created_at)}</p>
             </div>
           </div>
 
@@ -101,8 +123,9 @@ export function HelpRequestDetailSheet({
           <section>
             <h4 className="text-sm font-semibold mb-3">Requester</h4>
             <div className="flex items-center gap-3 rounded-full bg-muted/50 pr-4 pl-1 py-1 w-fit">
+              {/* Use avatar_url from API response */}
               <Avatar className="size-6">
-                <AvatarImage src={request.requester.avatarUrl} alt={request.requester.name} />
+                <AvatarImage src={request.requester.avatar_url ?? undefined} alt={request.requester.name} />
                 <AvatarFallback className="text-[8px]">
                   {getInitials(request.requester.name)}
                 </AvatarFallback>
@@ -116,8 +139,9 @@ export function HelpRequestDetailSheet({
             <h4 className="text-sm font-semibold mb-3">Helper</h4>
             {request.helper ? (
               <div className="flex items-center gap-3 rounded-full bg-muted/50 pr-4 pl-1 py-1 w-fit">
+                {/* Use avatar_url from API response */}
                 <Avatar className="size-6">
-                  <AvatarImage src={request.helper.avatarUrl} alt={request.helper.name} />
+                  <AvatarImage src={request.helper.avatar_url ?? undefined} alt={request.helper.name} />
                   <AvatarFallback className="text-[8px]">
                     {getInitials(request.helper.name)}
                   </AvatarFallback>
@@ -137,42 +161,19 @@ export function HelpRequestDetailSheet({
             <p className="text-sm text-muted-foreground leading-relaxed">{request.description}</p>
           </section>
 
-          {/* Rating */}
-          {request.rating > 0 && (
+          {/* Rating — show the enum label instead of stars */}
+          {request.rating && (
             <>
               <Separator />
               <section>
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="size-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                      <Star className="size-5 fill-primary text-primary" />
-                    </div>
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                        Quality Rating
-                      </p>
-                      <p className="text-sm font-bold">
-                        {request.rating >= 4
-                          ? "Excellent"
-                          : request.rating >= 3
-                            ? "Good"
-                            : request.rating >= 2
-                              ? "Fair"
-                              : "Needs Improvement"}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex gap-0.5">
-                    {Array.from({ length: 5 }).map((_, i) => (
-                      <Star
-                        key={i}
-                        className={`size-4 ${
-                          i < request.rating
-                            ? "fill-primary text-primary"
-                            : "text-muted-foreground/30"
-                        }`}
-                      />
-                    ))}
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                      Rating Category
+                    </p>
+                    <p className="text-sm font-bold mt-1">
+                      {helpRequestRatingLabel[request.rating]}
+                    </p>
                   </div>
                 </div>
               </section>

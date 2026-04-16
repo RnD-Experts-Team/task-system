@@ -1,6 +1,9 @@
 import { apiClient } from "@/services/api"
 import type { User as ApiUser, Role, Permission } from "@/types"
 import type { User, UserStatus } from "@/app/users/data"
+// Re-use the help-request types already defined in the help-requests module
+// so we don't duplicate the shape in two places.
+import type { HelpRequest, HelpRequestPagination } from "@/app/help-requests/types"
 
 // ─── Pagination metadata returned by GET /users ───────────────────────────────
 export interface UsersPaginationMeta {
@@ -10,6 +13,57 @@ export interface UsersPaginationMeta {
   last_page: number
   from: number | null
   to: number | null
+}
+
+// ─── Project (user as stakeholder) ────────────────────────────────────────────
+// Shape returned by GET /users/{id}/projects  — each item in data[].
+export type UserProjectStatus = "pending" | "in_progress" | "done" | "rated" | (string & {})
+
+export interface UserProject {
+  id: number
+  name: string
+  description: string | null
+  status: UserProjectStatus
+  progress_percentage: number | string
+  stakeholder_will_rate: boolean
+  created_at: string
+  updated_at: string
+}
+
+// ─── Task assignment ───────────────────────────────────────────────────────────
+// Shape returned by GET /users/{id}/task-assignments — each item in data[].
+export type TaskPriority = "low" | "medium" | "high" | "critical" | (string & {})
+export type TaskStatus   = "pending" | "in_progress" | "done" | "rated" | (string & {})
+
+export interface UserTaskAssignment {
+  id: number
+  name: string
+  description: string | null
+  weight: number
+  due_date: string | null
+  priority: TaskPriority
+  status: TaskStatus
+  section_id: number
+  project_id: number
+  completed_at: string | null
+  created_at: string
+  updated_at: string
+  /** Eager-loaded section with its parent project */
+  section: {
+    id: number
+    name: string
+    project_id: number
+    project: {
+      id: number
+      name: string
+      status: string
+      progress_percentage: number | string
+    }
+  } | null
+  /** Assignment percentage for this user on this task */
+  pivot: {
+    percentage: number
+  }
 }
 
 // ─── Roles & Permissions response from GET /users/{id}/roles-and-permissions ──
@@ -188,5 +242,86 @@ export const usersService = {
       { roles, permissions },
       { toast: { success: "User roles and permissions synced successfully" } } as never,
     )
+  },
+
+  // ─── Projects (user as stakeholder) ─────────────────────────────────────────
+
+  /**
+   * GET /users/{id}/projects — paginated list of projects where the user is stakeholder.
+   */
+  getUserProjects: async (
+    userId: string,
+    page = 1,
+  ): Promise<{ projects: UserProject[]; pagination: UsersPaginationMeta }> => {
+    // Raw response has { success, data: Project[], pagination, message }
+    const raw = (await apiClient.get<never>(`/users/${userId}/projects`, {
+      params: { page },
+    })) as unknown as {
+      success: boolean
+      data: UserProject[]
+      pagination: UsersPaginationMeta
+      message: string
+    }
+    return { projects: raw.data, pagination: raw.pagination }
+  },
+
+  // ─── Task assignments ────────────────────────────────────────────────────────
+
+  /**
+   * GET /users/{id}/task-assignments — full list of tasks assigned to this user.
+   * Returns a plain collection (not paginated) with section.project eager-loaded.
+   */
+  getUserTaskAssignments: async (userId: string): Promise<UserTaskAssignment[]> => {
+    // Raw response has { success, data: Task[], message }
+    const raw = (await apiClient.get<never>(`/users/${userId}/task-assignments`)) as unknown as {
+      success: boolean
+      data: UserTaskAssignment[]
+      message: string
+    }
+    return raw.data
+  },
+
+  // ─── Help requests requested by this user ────────────────────────────────────
+
+  /**
+   * GET /users/{id}/help-requests/requested
+   * Paginated list of help requests where this user is the requester.
+   */
+  getUserRequestedHelpRequests: async (
+    userId: string,
+    page = 1,
+  ): Promise<{ helpRequests: HelpRequest[]; pagination: HelpRequestPagination }> => {
+    // Raw response: { success, data: HelpRequest[], pagination, message }
+    const raw = (await apiClient.get<never>(`/users/${userId}/help-requests/requested`, {
+      params: { page },
+    })) as unknown as {
+      success: boolean
+      data: HelpRequest[]
+      pagination: HelpRequestPagination
+      message: string
+    }
+    return { helpRequests: raw.data, pagination: raw.pagination }
+  },
+
+  // ─── Help requests where this user is the assigned helper ─────────────────────
+
+  /**
+   * GET /users/{id}/help-requests/helping
+   * Paginated list of help requests where this user is the assigned helper.
+   */
+  getUserHelperHelpRequests: async (
+    userId: string,
+    page = 1,
+  ): Promise<{ helpRequests: HelpRequest[]; pagination: HelpRequestPagination }> => {
+    // Raw response: { success, data: HelpRequest[], pagination, message }
+    const raw = (await apiClient.get<never>(`/users/${userId}/help-requests/helping`, {
+      params: { page },
+    })) as unknown as {
+      success: boolean
+      data: HelpRequest[]
+      pagination: HelpRequestPagination
+      message: string
+    }
+    return { helpRequests: raw.data, pagination: raw.pagination }
   },
 }

@@ -8,13 +8,17 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import type { HelpRequest } from "@/app/help-requests/data"
+import { Loader2 } from "lucide-react"
+// Use API-aligned type instead of mock data type
+import type { HelpRequest } from "@/app/help-requests/types"
 
 type ConfirmDeleteHelpRequestDialogProps = {
   request: HelpRequest | null
   open: boolean
   onOpenChange: (open: boolean) => void
   onConfirm: () => void
+  /** Shows a spinner on the delete button while the API call is in-flight */
+  confirming?: boolean
 }
 
 export function ConfirmDeleteHelpRequestDialog({
@@ -22,6 +26,7 @@ export function ConfirmDeleteHelpRequestDialog({
   open,
   onOpenChange,
   onConfirm,
+  confirming = false,
 }: ConfirmDeleteHelpRequestDialogProps) {
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
@@ -35,8 +40,14 @@ export function ConfirmDeleteHelpRequestDialog({
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <AlertDialogAction variant="destructive" onClick={onConfirm}>
+          {/* Prevent closing while delete is in-flight */}
+          <AlertDialogCancel disabled={confirming}>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            variant="destructive"
+            onClick={onConfirm}
+            disabled={confirming}
+          >
+            {confirming && <Loader2 className="size-4 animate-spin" />}
             Delete
           </AlertDialogAction>
         </AlertDialogFooter>

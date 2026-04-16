@@ -9,6 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Button } from "@/components/ui/button"
+import { HtmlContent } from "@/components/ui/html-content"
 import { Pencil, Star, CheckCircle2, Circle } from "lucide-react"
 // Use the API-aligned Task type (not the mock from data.ts)
 import type { Task } from "@/app/tasks/types"
@@ -70,7 +71,7 @@ export function TaskDetailSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="max-w-full md:max-w-[50vw] overflow-y-auto themed-scrollbar">
+      <SheetContent side="right" className="data-[side=right]:sm:max-w-full overflow-y-auto themed-scrollbar">
         <SheetHeader className="gap-3">
           <div className="flex items-center gap-2 flex-wrap">
             <Badge variant={priorityVariant[task.priority] ?? "outline"} className="capitalize">
@@ -158,7 +159,11 @@ export function TaskDetailSheet({
           {/* Description */}
           <section>
             <h4 className="text-sm font-semibold mb-3">Description</h4>
-            <p className="text-sm text-muted-foreground leading-relaxed">{task.description}</p>
+            <HtmlContent
+              html={task.description}
+              className="text-sm text-muted-foreground leading-relaxed"
+              emptyFallback={<p className="text-sm text-muted-foreground">No description</p>}
+            />
           </section>
 
           <Separator />

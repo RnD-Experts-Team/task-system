@@ -51,6 +51,7 @@ import type {
 import { helpRequestRatingLabel } from "@/app/tasks/types"
 import type { ApiValidationError } from "@/types"
 import { TaskCommentsSection } from "@/app/tasks/components/task-comments-section"
+import { HtmlContent } from "@/components/ui/html-content"
 
 // â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
@@ -184,6 +185,8 @@ function SubtasksSection({ taskId }: { taskId: number }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [page, setPage] = useState(1)
+  // Track which subtask IDs are currently mid-toggle to prevent duplicate requests
+  const [togglingIds, setTogglingIds] = useState<Set<number>>(new Set())
 
   // Fetch subtasks for the current page from the dedicated endpoint
   const fetchSubtasks = useCallback(
@@ -219,6 +222,38 @@ function SubtasksSection({ taskId }: { taskId: number }) {
   useEffect(() => {
     fetchSubtasks(page)
   }, [fetchSubtasks, page])
+
+  // Toggle completion state for a subtask (optimistic UI)
+  async function handleToggle(subtask: Subtask) {
+    if (togglingIds.has(subtask.id)) return
+
+    const previous = subtask.is_complete
+
+    // Optimistic update
+    setSubtasks((prev) => prev.map((s) => (s.id === subtask.id ? { ...s, is_complete: !previous } : s)))
+    setTogglingIds((prev) => new Set(prev).add(subtask.id))
+
+    try {
+      const updated = await taskService.toggleSubtask(subtask.id)
+      // Sync with server truth
+      setSubtasks((prev) => prev.map((s) => (s.id === subtask.id ? updated : s)))
+    } catch (err: unknown) {
+      // Revert on error
+      setSubtasks((prev) => prev.map((s) => (s.id === subtask.id ? { ...s, is_complete: previous } : s)))
+      const msg = extractError(err, "Failed to toggle subtask.")
+      if (msg) {
+        setError(msg)
+        // Clear the transient toggle error after a short delay
+        setTimeout(() => setError(null), 5000)
+      }
+    } finally {
+      setTogglingIds((prev) => {
+        const next = new Set(prev)
+        next.delete(subtask.id)
+        return next
+      })
+    }
+  }
 
   const completedCount = subtasks.filter((s) => s.is_complete).length
   const totalCount = pagination?.total ?? subtasks.length
@@ -278,12 +313,21 @@ function SubtasksSection({ taskId }: { taskId: number }) {
                       : "bg-muted/50 border-l-2 border-primary"
                   }`}
                 >
-                  {/* Completion icon */}
-                  {subtask.is_complete ? (
-                    <CheckCircle2 className="size-4 text-green-500 shrink-0 mt-0.5" />
-                  ) : (
-                    <Circle className="size-4 text-muted-foreground shrink-0 mt-0.5" />
-                  )}
+                  {/* Completion icon (clickable to toggle) */}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="p-0"
+                    onClick={() => handleToggle(subtask)}
+                    disabled={togglingIds.has(subtask.id)}
+                    aria-label={subtask.is_complete ? "Mark subtask as incomplete" : "Mark subtask as complete"}
+                  >
+                    {subtask.is_complete ? (
+                      <CheckCircle2 className="size-4 text-green-500 shrink-0 mt-0.5" />
+                    ) : (
+                      <Circle className="size-4 text-muted-foreground shrink-0 mt-0.5" />
+                    )}
+                  </Button>
 
                   <div className="flex flex-col gap-0.5 flex-1 min-w-0">
                     <span
@@ -297,9 +341,10 @@ function SubtasksSection({ taskId }: { taskId: number }) {
                     </span>
 
                     {subtask.description && (
-                      <span className="text-xs text-muted-foreground line-clamp-2">
-                        {subtask.description}
-                      </span>
+                      <HtmlContent
+                        html={subtask.description}
+                        className="text-xs text-muted-foreground line-clamp-2"
+                      />
                     )}
 
                     {/* Priority + due date row */}
@@ -914,9 +959,10 @@ export default function TaskDetailPage() {
                   <Separator />
                   <div>
                     <h3 className="text-sm font-semibold mb-2">Description</h3>
-                    <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">
-                      {task.description}
-                    </p>
+                    <HtmlContent
+                      html={task.description}
+                      className="text-sm text-muted-foreground leading-relaxed"
+                    />
                   </div>
                 </>
               ) : null}

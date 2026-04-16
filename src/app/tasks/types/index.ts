@@ -292,3 +292,26 @@ export interface TaskSubtaskListApiResponse {
   pagination: TaskPagination
   message: string
 }
+
+// ─── Subtask Mutation Payloads ────────────────────────────────────
+
+// Body for POST /subtasks — creates a new subtask linked to a task
+export interface CreateSubtaskPayload {
+  name: string
+  description?: string | null
+  due_date: string        // YYYY-MM-DD
+  priority: TaskPriority
+  task_id: number         // parent task must already exist
+}
+
+// Body for PUT /subtasks/{id} — all fields optional (only sent fields are changed)
+export interface UpdateSubtaskPayload {
+  name?: string
+  description?: string | null
+  due_date?: string
+  priority?: TaskPriority
+  /** Explicitly set completion state (alternative to the /toggle endpoint) */
+  is_complete?: boolean
+  /** Reassign to a different parent task */
+  task_id?: number
+}

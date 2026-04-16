@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react"
-import { useNavigate, useSearchParams } from "react-router"
+import { useNavigate, useSearchParams, useLocation } from "react-router"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
@@ -49,6 +49,21 @@ import type { Task, TaskStatus, TaskPriority } from "@/app/tasks/types"
 type ViewMode = "table" | "grid"
 type PageView = "list" | "form" | "rating"
 
+// Shape passed via React Router location.state when navigating from a
+// section card (project details page) to open the task form directly.
+interface TaskFormLocationState {
+  /** Whether to open the form in create or edit mode */
+  openForm: "create" | "edit"
+  /** Pre-select this section in create mode */
+  defaultSectionId?: number
+  /** Pre-select this project in create mode */
+  defaultProjectId?: number
+  /** Full Task object to edit (already fetched by the caller) */
+  editTask?: Task
+  /** URL to navigate to after the form is submitted or cancelled */
+  returnTo?: string
+}
+
 // Status options that match the API enum values (plus "all" for no filter)
 const statusOptions: { value: TaskStatus | "all"; label: string }[] = [
   { value: "all", label: "All Status" },
@@ -82,6 +97,7 @@ function getInitials(name: string) {
 
 export default function TasksPage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const [searchParams] = useSearchParams()
 
   // ── View + UI state ──────────────────────────────────────────────
@@ -106,6 +122,9 @@ export default function TasksPage() {
   // ── Selected task state ──────────────────────────────────────────
   // The task currently being edited (null = create mode)
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
+  // Default section/project ids pre-populated when opening create from a section card
+  const [defaultSectionId, setDefaultSectionId] = useState<number | undefined>(undefined)
+  const [defaultProjectId, setDefaultProjectId] = useState<number | undefined>(undefined)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [deleteTask, setDeleteTask] = useState<Task | null>(null)
   const [ratingTask, setRatingTask] = useState<Task | null>(null)
@@ -132,6 +151,32 @@ export default function TasksPage() {
       setPageView("rating")
     }
   }, [searchParams])
+
+  // Consume location.state when navigating here from a section card.
+  // We read the state once on mount, apply it, then clear it so the form
+  // doesn't re-open if the user navigates back/forward through history.
+  useEffect(() => {
+    const state = location.state as TaskFormLocationState | null
+    if (!state?.openForm) return
+
+    if (state.openForm === "create") {
+      // Pre-seed section/project selectors and open the create form
+      setDefaultSectionId(state.defaultSectionId)
+      setDefaultProjectId(state.defaultProjectId)
+      setSelectedTask(null)
+      setFormMode("create")
+      setPageView("form")
+    } else if (state.openForm === "edit" && state.editTask) {
+      // Task was already fetched by the caller — open the edit form directly
+      setSelectedTask(state.editTask)
+      setFormMode("edit")
+      setPageView("form")
+    }
+
+    // Clear the consumed state so back-navigation doesn't re-trigger the form
+    navigate(location.pathname + location.search, { replace: true, state: null })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Build the params object sent to GET /tasks.
   // The useTasks hook re-fetches automatically whenever any value here changes.
@@ -211,7 +256,14 @@ export default function TasksPage() {
   }
 
   function handleFormCancel() {
-    setPageView("list")
+    // Navigate back to the originating page (e.g. project details) when
+    // the form was opened via location.state from a section card.
+    const returnTo = (location.state as TaskFormLocationState | null)?.returnTo
+    if (returnTo) {
+      navigate(returnTo)
+    } else {
+      setPageView("list")
+    }
   }
 
   function handleRatingCancel() {
@@ -241,14 +293,25 @@ export default function TasksPage() {
   // ── Sub-views (form + rating) ────────────────────────────────────
 
   if (pageView === "form") {
+    // Retrieve the returnTo URL from location.state (set by section card navigation).
+    // After a successful save we navigate back to the originating project page;
+    // if there's no returnTo we stay on the tasks list and refetch.
+    const returnTo = (location.state as TaskFormLocationState | null)?.returnTo
+
     return (
       <TaskForm
         mode={formMode}
         initialData={selectedTask}
+        defaultSectionId={defaultSectionId}
+        defaultProjectId={defaultProjectId}
         onSubmit={() => {
-          setPageView("list")
-          setSelectedTask(null)
-          refetch()
+          if (returnTo) {
+            navigate(returnTo)
+          } else {
+            setPageView("list")
+            setSelectedTask(null)
+            refetch()
+          }
         }}
         onCancel={handleFormCancel}
       />

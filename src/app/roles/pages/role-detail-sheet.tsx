@@ -32,7 +32,7 @@ export function RoleDetailSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="max-w-full md:max-w-[50vw] overflow-y-auto themed-scrollbar">
+      <SheetContent side="right" className="data-[side=right]:sm:max-w-full overflow-y-auto themed-scrollbar">
         <SheetHeader className="items-center text-center gap-3">
           <div className="flex items-center justify-center size-16 rounded-2xl bg-primary/10 ring-2 ring-primary/20">
             <Shield className="size-8 text-primary" />

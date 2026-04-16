@@ -8,10 +8,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import type { Ticket } from "@/app/tickets/data"
+// Use the API-aligned type instead of the old mock Ticket type
+import type { ApiTicket } from "@/app/tickets/types"
 
 type ConfirmDeleteTicketDialogProps = {
-  ticket: Ticket | null
+  ticket: ApiTicket | null
   open: boolean
   onOpenChange: (open: boolean) => void
   onConfirm: () => void
@@ -30,7 +31,10 @@ export function ConfirmDeleteTicketDialog({
           <AlertDialogTitle>Delete Ticket</AlertDialogTitle>
           <AlertDialogDescription>
             Are you sure you want to delete{" "}
-            <span className="font-semibold text-foreground">{ticket?.id}</span>?{" "}
+            {/* ticket.id is now a number from the backend */}
+            <span className="font-semibold text-foreground">
+              {ticket ? `#${ticket.id}` : "this ticket"}
+            </span>?{" "}
             This action is permanent and cannot be undone.
           </AlertDialogDescription>
         </AlertDialogHeader>
@@ -44,3 +48,4 @@ export function ConfirmDeleteTicketDialog({
     </AlertDialog>
   )
 }
+

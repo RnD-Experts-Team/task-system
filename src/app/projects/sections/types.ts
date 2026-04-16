@@ -24,6 +24,24 @@ export interface UpdateSectionPayload {
   description: string | null
 }
 
+// A user assigned to a task, with the pivot `percentage` field from the
+// task_user pivot table. Returned by the tasks-with-assignments endpoint.
+export interface SectionTaskAssignedUser {
+  id: number
+  name: string
+  email: string
+  avatar_path: string | null
+  avatar_url: string | null
+  pivot?: {
+    task_id: number
+    user_id: number
+    percentage: number
+  }
+}
+
+// A task belonging to a section.
+// The `assigned_users` array is populated by the tasks-with-assignments endpoint
+// (GET /sections/{sectionId}/tasks-with-assignments) and includes the pivot percentage.
 export interface SectionTask {
   id: number
   name: string
@@ -37,6 +55,8 @@ export interface SectionTask {
   completed_at: string | null
   created_at: string
   updated_at: string
+  /** Users assigned to this task with their percentage allocation */
+  assigned_users: SectionTaskAssignedUser[]
 }
 
 // Shape returned by paginated backend endpoints

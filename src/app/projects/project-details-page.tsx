@@ -23,6 +23,10 @@ import {
 // Section integration — fetches and displays project sections with tasks
 import { useSections } from "./sections/hooks/useSections"
 import { SectionList } from "./sections/SectionList"
+// Assignment panel — shows all users assigned to tasks in this project
+import { ProjectAssignmentsPanel } from "./components/project-assignments-panel"
+// Ratings panel — shows all stakeholder ratings submitted for this project
+import { StakeholderRatingsPanel } from "./components/stakeholder-ratings-panel"
 
 export default function ProjectDetailsPage() {
   const navigate = useNavigate()
@@ -198,6 +202,33 @@ export default function ProjectDetailsPage() {
               onUpdateSection={updateSection}
               onDeleteSection={deleteSection}
             />
+          </div>
+
+          <Separator />
+
+          {/* ── Team Assignments ── */}
+          {/* Lists every user who has tasks assigned in this project,
+              grouped by user with the task name, status, priority, due date,
+              and their percentage allocation per task. */}
+          <div className="space-y-3">
+            <h2 className="text-lg font-semibold tracking-tight">Team Assignments</h2>
+            <p className="text-sm text-muted-foreground">
+              All team members with task assignments in this project, including their allocation percentages.
+            </p>
+            <ProjectAssignmentsPanel projectId={projectId} variant="full" />
+          </div>
+
+          <Separator />
+
+          {/* ── Stakeholder Ratings ── */}
+          {/* Lists all ratings submitted by the stakeholder for this project,
+              showing their final score and the individual field breakdown. */}
+          <div className="space-y-3">
+            <h2 className="text-lg font-semibold tracking-tight">Stakeholder Ratings</h2>
+            <p className="text-sm text-muted-foreground">
+              Ratings submitted by the project stakeholder, including per-field scores and the overall result.
+            </p>
+            <StakeholderRatingsPanel projectId={projectId} variant="full" />
           </div>
         </div>
       ) : null}

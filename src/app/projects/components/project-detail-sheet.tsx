@@ -40,7 +40,7 @@ export function ProjectDetailSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="overflow-y-auto">
+      <SheetContent side="right" className="data-[side=right]:sm:max-w-full overflow-y-auto themed-scrollbar">
         <SheetHeader className="gap-3">
           <div className="flex items-center gap-2 flex-wrap">
             <Badge variant="outline" className={statusClassName(project.status)}>

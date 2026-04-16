@@ -130,7 +130,7 @@ export function RoleFormSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="sm:max-w-lg overflow-y-auto">
+      <SheetContent side="right" className="data-[side=right]:sm:max-w-[64rem] overflow-y-auto">
         <SheetHeader className="gap-1">
           <SheetTitle className="text-2xl font-bold">
             {mode === "create" ? "Create Role" : "Edit Role"}

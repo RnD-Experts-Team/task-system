@@ -1,9 +1,13 @@
 // Task Form — used for both Create and Edit modes.
-// Create mode → POST /tasks, then POST /tasks/{id}/assign-users (one bulk call).
-// Edit mode   → PUT /tasks/{id}, TaskAssignmentPanel handles assignment CRUD inline.
+// Create mode → POST /tasks → POST /tasks/{id}/status → POST /tasks/{id}/assign-users
+//              → POST /subtasks for each local subtask (all after the main task save).
+// Edit mode   → PUT /tasks/{id}, TaskAssignmentPanel handles assignment CRUD inline,
+//              TaskSubtasksSection handles subtask CRUD inline via dedicated endpoints.
 //
 // Assignment rows are collected locally in create mode and submitted in a single
 // bulk request after the task is saved — no per-user round trips.
+// Subtasks in create mode are also collected locally and POSTed individually after
+// the task exists (they require a task_id).
 
 import { useState, useEffect } from "react"
 import { AxiosError, isCancel } from "axios"
@@ -22,6 +26,8 @@ import {
 } from "@/components/ui/select"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { AlertCircle, ArrowLeft, Loader2, Plus, X } from "lucide-react"
+import { HtmlEditor } from "@/components/ui/html-editor"
+import { normalizeHtmlForSubmit } from "@/lib/html"
 
 // Store actions for creating / updating tasks
 import { useCreateTask } from "@/app/tasks/hooks/useCreateTask"
@@ -35,13 +41,16 @@ import type { Project } from "@/app/projects/types"
 import type { Section } from "@/app/projects/sections/types"
 
 // API-aligned Task type (from types/index.ts, not the mock data.ts)
-import type { Task, TaskPriority, TaskStatus, Subtask } from "@/app/tasks/types"
+import type { Task, TaskPriority, TaskStatus } from "@/app/tasks/types"
 import type { ApiValidationError } from "@/types"
 
 // Assignment panel — manages add/remove/bulk-assign for a task
 import { TaskAssignmentPanel } from "@/app/tasks/pages/task-assignment-panel"
 // All-users hook — populates the user selector in the create-mode assignment builder
 import { useAllUsers } from "@/app/tasks/hooks/useAllUsers"
+// Subtasks section — full CRUD (edit mode: API-backed; create mode: local state)
+import { TaskSubtasksSection } from "@/app/tasks/components/task-subtasks-section"
+import type { LocalSubtaskInput } from "@/app/tasks/components/task-subtasks-section"
 
 // ─── Types ────────────────────────────────────────────────────────
 
@@ -49,6 +58,16 @@ type TaskFormProps = {
   mode: "create" | "edit"
   /** Populated in edit mode with the task loaded from GET /tasks/{id} */
   initialData?: Task | null
+  /**
+   * Pre-select a project in create mode (e.g. when opened from a section card).
+   * Ignored in edit mode — initialData.section.project_id is used instead.
+   */
+  defaultProjectId?: number
+  /**
+   * Pre-select a section in create mode (e.g. when opened from a section card).
+   * Ignored in edit mode — initialData.section_id is used instead.
+   */
+  defaultSectionId?: number
   /** Called after a successful API response — caller navigates away */
   onSubmit: () => void
   onCancel: () => void
@@ -85,7 +104,7 @@ type AssignmentRow = { key: number; userId: string; percentage: string }
 
 // ─── Component ────────────────────────────────────────────────────
 
-export function TaskForm({ mode, initialData, onSubmit, onCancel }: TaskFormProps) {
+export function TaskForm({ mode, initialData, defaultProjectId, defaultSectionId, onSubmit, onCancel }: TaskFormProps) {
   // ── Mutation hooks ─────────────────────────────────────────────
   const { createTask, submitting: creating, submitError: createError, clearSubmitError: clearCreateError } = useCreateTask()
   const { updateTask, submitting: updating, submitError: updateError, clearSubmitError: clearUpdateError } = useUpdateTask()
@@ -108,19 +127,20 @@ export function TaskForm({ mode, initialData, onSubmit, onCancel }: TaskFormProp
   const [weight, setWeight] = useState<number>(initialData?.weight ?? 1)
   const [dueDate, setDueDate] = useState(initialData?.due_date ?? "")
 
-  // Project is derived from the section relationship; pre-select in edit mode
+  // Project is derived from the section relationship; pre-select in edit mode.
+  // In create mode, fall back to defaultProjectId when provided (e.g. from a section card).
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(
-    initialData?.section?.project_id ?? null
+    initialData?.section?.project_id ?? defaultProjectId ?? null
   )
+  // Section to assign the task to; pre-select from edit data or default in create mode.
   const [sectionId, setSectionId] = useState<number | null>(
-    initialData?.section_id ?? null
+    initialData?.section_id ?? defaultSectionId ?? null
   )
 
-  // Subtasks — UI only; no API call here, subtask endpoints are separate
-  const [subtaskInput, setSubtaskInput] = useState("")
-  const [subtasks, setSubtasks] = useState<Subtask[]>(
-    Array.isArray(initialData?.subtasks) ? initialData.subtasks : []
-  )
+  // Subtasks — create mode collects these locally; after the task is saved each
+  // entry is POSTed individually via POST /subtasks (task_id becomes known then).
+  // Edit mode subtask CRUD is handled entirely inside TaskSubtasksSection.
+  const [localSubtasks, setLocalSubtasks] = useState<LocalSubtaskInput[]>([])
 
   // Client-side validation error messages shown below each field
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
@@ -198,12 +218,13 @@ export function TaskForm({ mode, initialData, onSubmit, onCancel }: TaskFormProp
     setStatusError(null)
 
     let success = false
+    const normalizedDescription = normalizeHtmlForSubmit(description)
 
     if (mode === "create") {
       // POST /tasks
       const result = await createTask({
         name: name.trim(),
-        description: description.trim() || null,
+        description: normalizedDescription,
         weight,
         due_date: dueDate,
         priority,
@@ -232,6 +253,26 @@ export function TaskForm({ mode, initialData, onSubmit, onCancel }: TaskFormProp
               if (isCancel(err)) return
             }
           }
+
+          // POST /subtasks for each locally-added subtask (create mode only).
+          // These are posted sequentially after the task and assignments are saved.
+          // Errors are non-fatal — the task was created; subtasks can be added later.
+          for (const sub of localSubtasks) {
+            try {
+              await taskService.createSubtask({
+                name: sub.name,
+                description: sub.description || null,
+                due_date: sub.due_date,
+                priority: sub.priority,
+                task_id: result.id,
+              })
+            } catch (err) {
+              if (isCancel(err)) return
+              // Individual subtask failures are silently swallowed here;
+              // the API client interceptor already shows an error toast.
+            }
+          }
+
           success = true
         }
       }
@@ -239,7 +280,7 @@ export function TaskForm({ mode, initialData, onSubmit, onCancel }: TaskFormProp
       // PUT /tasks/{id}
       const result = await updateTask(initialData.id, {
         name: name.trim(),
-        description: description.trim() || null,
+        description: normalizedDescription,
         weight,
         due_date: dueDate,
         priority,
@@ -272,31 +313,6 @@ export function TaskForm({ mode, initialData, onSubmit, onCancel }: TaskFormProp
     } finally {
       setStatusSubmitting(false)
     }
-  }
-
-  // ── Subtask helpers (UI-only) ──────────────────────────────────
-  function handleAddSubtask() {
-    if (!subtaskInput.trim()) return
-    // Temporary subtask object — real IDs come from the API separately
-    setSubtasks((prev) => [
-      ...prev,
-      {
-        id: Date.now(),
-        name: subtaskInput.trim(),
-        is_complete: false,
-        task_id: initialData?.id ?? 0,
-        due_date: "",
-        priority: "medium" as TaskPriority,
-        description: null,
-        created_at: "",
-        updated_at: "",
-      },
-    ])
-    setSubtaskInput("")
-  }
-
-  function handleRemoveSubtask(id: number) {
-    setSubtasks((prev) => prev.filter((s) => s.id !== id))
   }
 
   // ── Assignment row helpers (create mode only) ──────────────────
@@ -524,13 +540,12 @@ export function TaskForm({ mode, initialData, onSubmit, onCancel }: TaskFormProp
                 {/* Description — optional, full width */}
                 <div className="md:col-span-2 space-y-2">
                   <Label htmlFor="description">Description</Label>
-                  <textarea
+                  <HtmlEditor
                     id="description"
                     value={description}
-                    onChange={(e) => setDescription(e.target.value)}
+                    onChange={setDescription}
                     placeholder="Briefly describe the task objectives..."
-                    rows={4}
-                    className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-none"
+                    minHeightClassName="min-h-36"
                   />
                 </div>
 
@@ -648,67 +663,18 @@ export function TaskForm({ mode, initialData, onSubmit, onCancel }: TaskFormProp
 
             <Separator />
 
-            {/* ── Subtasks section — UI placeholder; subtask endpoints are handled separately ── */}
-            <section className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                  Subtasks ({subtasks.length})
-                </h3>
-              </div>
-
-              {/* Add subtask input row */}
-              <div className="flex gap-2">
-                <Input
-                  value={subtaskInput}
-                  onChange={(e) => setSubtaskInput(e.target.value)}
-                  placeholder="Add a subtask..."
-                  className="h-10 text-sm"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault()
-                      handleAddSubtask()
-                    }
-                  }}
-                />
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  onClick={handleAddSubtask}
-                >
-                  <Plus className="size-4" />
-                  Add
-                </Button>
-              </div>
-
-              {/* Subtask list */}
-              {subtasks.length > 0 ? (
-                <div className="space-y-2">
-                  {subtasks.map((subtask) => (
-                    <div
-                      key={subtask.id}
-                      className="flex items-center gap-3 p-3 rounded-lg bg-muted/50"
-                    >
-                      <span className="text-sm flex-1">{subtask.name}</span>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon-xs"
-                        onClick={() => handleRemoveSubtask(subtask.id)}
-                      >
-                        <X className="size-3.5" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="py-8 flex flex-col items-center justify-center border-2 border-dashed border-muted rounded-xl">
-                  <p className="text-sm text-muted-foreground">No subtasks added yet</p>
-                  <p className="text-xs text-muted-foreground/70 mt-1">
-                    Break down this task into smaller components.
-                  </p>
-                </div>
-              )}
+            {/* ── Subtasks section ──
+                Edit mode: TaskSubtasksSection fetches from GET /tasks/{taskId}/subtasks
+                           and provides full inline CRUD (add, view, edit, delete, toggle).
+                Create mode: purely local state; each entry is POSTed via POST /subtasks
+                             individually after the parent task is successfully created. */}
+            <section>
+              <TaskSubtasksSection
+                mode={mode}
+                taskId={mode === "edit" ? initialData?.id : undefined}
+                localSubtasks={localSubtasks}
+                onChange={setLocalSubtasks}
+              />
             </section>
 
             <Separator />
