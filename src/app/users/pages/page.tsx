@@ -12,6 +12,7 @@ import { UserGridView } from "@/app/users/pages/user-grid-view"
 import { UserForm } from "@/app/users/pages/user-form"
 import { ConfirmDeleteDialog } from "@/app/users/pages/confirm-delete-dialog"
 import { useUsers } from "@/hooks/useUsers"
+import { usePermissions } from "@/hooks/usePermissions"
 import type { User } from "@/app/users/data"
 import type { UserFormData } from "@/app/users/pages/user-form"
 import { UserDetailSheet } from "./user-detail-sheet"
@@ -23,6 +24,14 @@ type PageView = "list" | "form"
 export default function UsersPage() {
   const [view, setView] = useState<ViewMode>("table")
   const [search, setSearch] = useState("")
+
+  // Read the current user's permissions once; used to conditionally show
+  // page sections and action buttons throughout this page.
+  const { hasPermission } = usePermissions()
+  const canViewUsers   = hasPermission("view users")
+  const canCreateUsers = hasPermission("create users")
+  const canEditUsers   = hasPermission("edit users")
+  const canDeleteUsers = hasPermission("delete users")
 
   // Page-level view state (list vs create/edit form)
   const [pageView, setPageView] = useState<PageView>("list")
@@ -120,6 +129,7 @@ export default function UsersPage() {
         name: data.name,
         email: data.email,
         password: data.password,
+        avatar: data.avatar,
       })
       if (createdUser) return createdUser.id
     } else if (selectedUser) {
@@ -128,6 +138,8 @@ export default function UsersPage() {
         name: data.name,
         email: data.email,
         ...(data.password ? { password: data.password } : {}),
+        avatar: data.avatar,
+        removeAvatar: data.removeAvatar,
       })
       if (ok) return selectedUser.id
     }
@@ -147,7 +159,19 @@ export default function UsersPage() {
   }
 
   // ── Form view ───────────────────────────────────────────────────────────────
+  // Guard: only users with the matching permission may access the form.
+  // If someone bypasses the button (e.g. direct state manipulation) they
+  // are silently dropped back to the list.
   if (pageView === "form") {
+    const hasFormPermission =
+      formMode === "create" ? canCreateUsers : canEditUsers
+
+    if (!hasFormPermission) {
+      // Fall back to list silently — no permission to create/edit
+      setPageView("list")
+      return null
+    }
+
     return (
       <UserForm
         mode={formMode}
@@ -165,7 +189,9 @@ export default function UsersPage() {
   }
 
   return (
-    <ProtectedRoute role="admin">
+    // Page-level guard: only users with "view users" can see this page.
+    // Everyone else is redirected to /dashboard.
+    <ProtectedRoute permission="view users">
       <div className="flex flex-1 flex-col gap-6 p-4 md:p-6">
         {/* Header */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
@@ -181,14 +207,17 @@ export default function UsersPage() {
               Manage organizational access, roles, and security protocols.
             </p>
           </div>
-          <Button
-            className="transition-all hover:shadow-md hover:shadow-primary/25"
-            size="lg"
-            onClick={handleCreate}
-          >
-            <Plus />
-            Add User
-          </Button>
+          {/* Only users with "create users" permission see the Add User button */}
+          {canCreateUsers && (
+            <Button
+              className="transition-all hover:shadow-md hover:shadow-primary/25"
+              size="lg"
+              onClick={handleCreate}
+            >
+              <Plus />
+              Add User
+            </Button>
+          )}
         </div>
 
         {/* ── Error banner ────────────────────────────────────────────────────── */}
@@ -261,11 +290,16 @@ export default function UsersPage() {
                 </p>
               </div>
             ) : view === "table" ? (
+              // Pass permission flags so the table can hide edit/delete buttons
+              // for users who don't hold the corresponding permission.
               <UserTableView
                 users={displayedUsers}
                 onEdit={handleEdit}
                 onDelete={handleDelete}
                 onSelect={handleSelect}
+                canEdit={canEditUsers}
+                canDelete={canDeleteUsers}
+                canView={canViewUsers}
               />
             ) : (
               <UserGridView
@@ -273,6 +307,9 @@ export default function UsersPage() {
                 onEdit={handleEdit}
                 onDelete={handleDelete}
                 onSelect={handleSelect}
+                canEdit={canEditUsers}
+                canDelete={canDeleteUsers}
+                canView={canViewUsers}
               />
             )}
 
@@ -296,12 +333,13 @@ export default function UsersPage() {
         )}
       </div>
 
-      {/* User Detail Sheet */}
+      {/* User Detail Sheet — pass canEdit so the sheet can hide the Edit button
+          when the current user lacks "edit users" permission */}
       <UserDetailSheet
         user={sheetUser}
         open={sheetOpen}
         onOpenChange={setSheetOpen}
-        onEdit={handleEdit}
+        onEdit={canEditUsers ? handleEdit : undefined}
       />
 
       {/* Confirm Delete Dialog — shows loading + error from the API */}

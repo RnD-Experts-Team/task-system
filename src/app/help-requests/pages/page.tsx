@@ -29,7 +29,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { AlertCircle, Search, LayoutList, LayoutGrid, HelpCircle, Loader2, Plus } from "lucide-react"
 import { Pagination } from "@/components/pagination"
@@ -45,6 +44,7 @@ import { useHelpRequestMutations } from "@/app/help-requests/hooks/useHelpReques
 // UI sub-components
 import { HelpRequestTableView } from "@/app/help-requests/pages/help-request-table-view"
 import { HelpRequestGridView } from "@/app/help-requests/pages/help-request-grid-view"
+import { HelpRequestTableSkeleton, HelpRequestGridSkeleton } from "@/app/help-requests/pages/help-request-skeletons"
 import { HelpRequestDetailSheet } from "@/app/help-requests/pages/help-request-detail-sheet"
 import { ConfirmDeleteHelpRequestDialog } from "@/app/help-requests/pages/confirm-delete-help-request-dialog"
 // Sheet-based form for create and edit — no separate page needed
@@ -358,11 +358,7 @@ export default function HelpRequestsPage() {
 
             {/* ── Loading skeleton ─────────────────────────────────────────────────── */}
             {loading && (
-              <div className="space-y-2 mb-4">
-                {Array.from({ length: 6 }).map((_, i) => (
-                  <Skeleton key={i} className="h-14 w-full rounded-md" />
-                ))}
-              </div>
+              view === "table" ? <HelpRequestTableSkeleton /> : <HelpRequestGridSkeleton />
             )}
 
             {/* ── Content: table or card grid ──────────────────────────────────────── */}
@@ -420,11 +416,7 @@ export default function HelpRequestsPage() {
           <TabsContent value="available" className="mt-0">
             {/* ── Loading skeleton ─────────────────────────────────────────────────── */}
             {availableLoading && (
-              <div className="space-y-2 mb-4">
-                {Array.from({ length: 6 }).map((_, i) => (
-                  <Skeleton key={i} className="h-14 w-full rounded-md" />
-                ))}
-              </div>
+              view === "table" ? <HelpRequestTableSkeleton /> : <HelpRequestGridSkeleton />
             )}
 
             {/* ── Content: table or card grid ──────────────────────────────────────── */}

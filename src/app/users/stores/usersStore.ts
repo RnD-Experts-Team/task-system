@@ -13,6 +13,8 @@ import type { User } from "@/app/users/data"
 import type { ApiValidationError } from "@/types"
 // Re-use help-request types for the two new user/help-request endpoints
 import type { HelpRequest, HelpRequestPagination } from "@/app/help-requests/types"
+// Re-use the ticket type for the two new user/ticket endpoints
+import type { ApiTicket } from "@/app/tickets/types"
 
 // ─── Helper: extract a user-friendly error from Axios errors ──────────────────
 function extractErrorMessage(err: unknown, fallback: string): string {
@@ -95,7 +97,25 @@ interface UsersState {
   userHelperHelpRequestsLoading: boolean
   /** Error from the last helper help-requests fetch */
   userHelperHelpRequestsError: string | null
-}
+  // ── Tickets submitted by this user (as requester) ──────────────────────
+  /** Paginated list of tickets this user submitted */
+  userRequestedTickets: ApiTicket[] | null
+  /** Pagination metadata for the requested-tickets list */
+  userRequestedTicketsPagination: UsersPaginationMeta | null
+  /** True while fetching requested tickets */
+  userRequestedTicketsLoading: boolean
+  /** Error from the last requested-tickets fetch */
+  userRequestedTicketsError: string | null
+
+  // ── Tickets assigned to this user ───────────────────────────────────────
+  /** Paginated list of tickets currently assigned to this user */
+  userAssignedTickets: ApiTicket[] | null
+  /** Pagination metadata for the assigned-tickets list */
+  userAssignedTicketsPagination: UsersPaginationMeta | null
+  /** True while fetching assigned tickets */
+  userAssignedTicketsLoading: boolean
+  /** Error from the last assigned-tickets fetch */
+  userAssignedTicketsError: string | null}
 
 // ─── Actions shape ────────────────────────────────────────────────────────────
 
@@ -150,7 +170,17 @@ interface UsersActions {
   fetchUserHelperHelpRequests: (userId: string, page?: number) => Promise<void>
   /** Reset helper help requests (e.g. when the selected user changes) */
   clearUserHelperHelpRequests: () => void
-}
+  // ── Requested tickets actions ───────────────────────────────────────────────
+  /** Fetch a page of tickets submitted by this user */
+  fetchUserRequestedTickets: (userId: string, page?: number) => Promise<void>
+  /** Reset requested tickets (e.g. when the selected user changes) */
+  clearUserRequestedTickets: () => void
+
+  // ── Assigned tickets actions ────────────────────────────────────────────────
+  /** Fetch a page of tickets assigned to this user */
+  fetchUserAssignedTickets: (userId: string, page?: number) => Promise<void>
+  /** Reset assigned tickets (e.g. when the selected user changes) */
+  clearUserAssignedTickets: () => void}
 
 type UsersStore = UsersState & UsersActions
 
@@ -193,7 +223,17 @@ export const useUsersStore = create<UsersStore>()((set, get) => ({
   userHelperHelpRequestsPagination: null,
   userHelperHelpRequestsLoading: false,
   userHelperHelpRequestsError: null,
+  // ── initial state: requested tickets ────────────────────────────────────
+  userRequestedTickets: null,
+  userRequestedTicketsPagination: null,
+  userRequestedTicketsLoading: false,
+  userRequestedTicketsError: null,
 
+  // ── initial state: assigned tickets ──────────────────────────────────────
+  userAssignedTickets: null,
+  userAssignedTicketsPagination: null,
+  userAssignedTicketsLoading: false,
+  userAssignedTicketsError: null,
   // ── list action ────────────────────────────────────────────────────────────
 
   fetchUsers: async (page = 1) => {
@@ -479,5 +519,61 @@ export const useUsersStore = create<UsersStore>()((set, get) => ({
       userHelperHelpRequests: null,
       userHelperHelpRequestsPagination: null,
       userHelperHelpRequestsError: null,
+    }),
+
+  // ── Requested tickets actions ──────────────────────────────────────────────
+
+  // Fetch a page of tickets submitted by this user (as requester).
+  fetchUserRequestedTickets: async (userId: string, page = 1) => {
+    set({ userRequestedTicketsLoading: true, userRequestedTicketsError: null })
+
+    try {
+      const { tickets, pagination } = await usersService.getUserRequestedTickets(userId, page)
+      set({ userRequestedTickets: tickets, userRequestedTicketsPagination: pagination })
+    } catch (err) {
+      if (!isCancel(err)) {
+        set({
+          userRequestedTicketsError: extractErrorMessage(err, "Failed to load requested tickets."),
+        })
+      }
+    } finally {
+      set({ userRequestedTicketsLoading: false })
+    }
+  },
+
+  // Reset requested tickets — call when the active user in the sheet changes
+  clearUserRequestedTickets: () =>
+    set({
+      userRequestedTickets: null,
+      userRequestedTicketsPagination: null,
+      userRequestedTicketsError: null,
+    }),
+
+  // ── Assigned tickets actions ────────────────────────────────────────────────
+
+  // Fetch a page of tickets assigned to this user.
+  fetchUserAssignedTickets: async (userId: string, page = 1) => {
+    set({ userAssignedTicketsLoading: true, userAssignedTicketsError: null })
+
+    try {
+      const { tickets, pagination } = await usersService.getUserAssignedTickets(userId, page)
+      set({ userAssignedTickets: tickets, userAssignedTicketsPagination: pagination })
+    } catch (err) {
+      if (!isCancel(err)) {
+        set({
+          userAssignedTicketsError: extractErrorMessage(err, "Failed to load assigned tickets."),
+        })
+      }
+    } finally {
+      set({ userAssignedTicketsLoading: false })
+    }
+  },
+
+  // Reset assigned tickets — call when the active user in the sheet changes
+  clearUserAssignedTickets: () =>
+    set({
+      userAssignedTickets: null,
+      userAssignedTicketsPagination: null,
+      userAssignedTicketsError: null,
     }),
 }))

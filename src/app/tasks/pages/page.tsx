@@ -21,7 +21,6 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { DateInput } from "@/components/ui/date-input"
 import {
   AlertCircle,
-  Loader2,
   Plus,
   Search,
   LayoutList,
@@ -40,6 +39,7 @@ import { useDeleteTask } from "@/app/tasks/hooks/useDeleteTask"
 import { useAllUsers } from "@/app/tasks/hooks/useAllUsers"
 import { TaskTableView } from "@/app/tasks/pages/task-table-view"
 import { TaskGridView } from "@/app/tasks/pages/task-grid-view"
+import { TaskTableSkeleton, TaskGridSkeleton } from "@/app/tasks/pages/task-skeletons"
 import { ConfirmDeleteTaskDialog } from "@/app/tasks/pages/confirm-delete-task-dialog"
 import { TaskForm } from "@/app/tasks/pages/task-form"
 import { TaskRatingForm } from "@/app/tasks/pages/task-rating-form"
@@ -325,6 +325,7 @@ export default function TasksPage() {
         onSubmit={() => {
           setPageView("list")
           setRatingTask(null)
+          refetch()
         }}
         onCancel={handleRatingCancel}
       />
@@ -513,9 +514,7 @@ export default function TasksPage() {
 
         {/* ── Loading indicator ── */}
         {loading && (
-          <div className="flex flex-1 items-center justify-center py-16">
-            <Loader2 className="size-6 animate-spin text-primary" />
-          </div>
+          view === "table" ? <TaskTableSkeleton /> : <TaskGridSkeleton />
         )}
 
         {/* ── Error state — cancelled requests are ignored in the store ── */}

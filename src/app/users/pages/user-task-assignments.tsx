@@ -1,7 +1,8 @@
 import { useEffect } from "react"
-import { AlertCircle, ClipboardList, Calendar } from "lucide-react"
+import { AlertCircle, Calendar } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useUsersStore } from "@/app/users/stores/usersStore"
 import type { TaskPriority, TaskStatus } from "@/services/usersService"
@@ -103,43 +104,46 @@ export function UserTaskAssignments({ userId }: UserTaskAssignmentsProps) {
   // ── Loading skeleton ─────────────────────────────────────────────────────
   if (userTaskAssignmentsLoading && !userTaskAssignments) {
     return (
-      <div className="space-y-2">
-        <Skeleton className="h-4 w-36" />
-        {Array.from({ length: 3 }).map((_, i) => (
-          <Skeleton key={i} className="h-10 w-full rounded-md" />
-        ))}
-      </div>
+      <>
+        {/* Separator separates this section from whatever is rendered above it */}
+        <Separator />
+        <div className="space-y-2">
+          <Skeleton className="h-4 w-36" />
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} className="h-10 w-full rounded-md" />
+          ))}
+        </div>
+      </>
     )
   }
 
   // ── Error state (ignore cancelled requests) ──────────────────────────────
   if (userTaskAssignmentsError && !userTaskAssignments) {
     return (
-      <div className="flex flex-col items-center gap-3 py-6 text-center">
-        <AlertCircle className="size-7 text-destructive" />
-        <p className="text-sm text-destructive">{userTaskAssignmentsError}</p>
-        {/* Retry simply re-triggers the fetch */}
-        <Button variant="outline" size="sm" onClick={() => fetchUserTaskAssignments(userId)}>
-          Retry
-        </Button>
-      </div>
+      <>
+        <Separator />
+        <div className="flex flex-col items-center gap-3 py-6 text-center">
+          <AlertCircle className="size-7 text-destructive" />
+          <p className="text-sm text-destructive">{userTaskAssignmentsError}</p>
+          {/* Retry simply re-triggers the fetch */}
+          <Button variant="outline" size="sm" onClick={() => fetchUserTaskAssignments(userId)}>
+            Retry
+          </Button>
+        </div>
+      </>
     )
   }
 
-  // ── Empty state ──────────────────────────────────────────────────────────
-  if (userTaskAssignments && userTaskAssignments.length === 0) {
-    return (
-      <div className="flex flex-col items-center gap-2 py-6 text-center text-muted-foreground">
-        <ClipboardList className="size-8 opacity-40" />
-        <p className="text-sm">No task assignments found for this user.</p>
-      </div>
-    )
-  }
-
-  if (!userTaskAssignments) return null
+  // ── Empty / not-yet-loaded: hide section entirely ────────────────────────
+  // Returns null so no separator or heading appears when there are no assignments.
+  if (!userTaskAssignments || userTaskAssignments.length === 0) return null
 
   return (
-    <div className="space-y-3">
+    <>
+      {/* Separator separates this section from whatever rendered above it */}
+      <Separator />
+
+      <div className="space-y-3">
       {/* ── Section heading ─────────────────────────────────────────────── */}
       <div className="flex items-center justify-between">
         <h4 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">
@@ -197,5 +201,6 @@ export function UserTaskAssignments({ userId }: UserTaskAssignmentsProps) {
         })}
       </div>
     </div>
+    </>
   )
 }

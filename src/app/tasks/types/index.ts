@@ -315,3 +315,20 @@ export interface UpdateSubtaskPayload {
   /** Reassign to a different parent task */
   task_id?: number
 }
+
+// ─── Task Rating Mutation Payloads ────────────────────────────────
+
+// Body for POST /task-ratings — creates a new task rating
+// rating_data keys are field names from the rating config; values are numeric scores
+export interface CreateTaskRatingPayload {
+  task_id: number               // ID of the task being rated
+  rating_config_id: number      // ID of the active task_rating config to use
+  rating_data: Record<string, number>  // e.g. { "Code Quality": 85, "Delivery": 90 }
+}
+
+// Body for PUT /task-ratings/{id} — updates an existing task rating
+// All fields are optional; only provided fields are updated
+export interface UpdateTaskRatingPayload {
+  rating_config_id?: number
+  rating_data?: Record<string, number>
+}

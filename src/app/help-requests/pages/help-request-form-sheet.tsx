@@ -34,6 +34,7 @@ import { AlertCircle, Loader2 } from "lucide-react"
 import { apiClient } from "@/services/api"
 import type { HelpRequest, CreateHelpRequestPayload, UpdateHelpRequestPayload } from "@/app/help-requests/types"
 import { useHelpRequestMutations } from "@/app/help-requests/hooks/useHelpRequestMutations"
+import { HelpRequestFormSkeleton } from "@/app/help-requests/pages/help-request-skeletons"
 
 // ── Minimal shapes we need from the API ──────────────────────────────────────
 
@@ -188,10 +189,7 @@ export function HelpRequestFormSheet({
 
         {/* ── Options loading / error ──────────────────────────────────────── */}
         {optionsLoading && (
-          <div className="px-1 py-6 flex items-center justify-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="size-4 animate-spin" />
-            Loading options…
-          </div>
+          <HelpRequestFormSkeleton />
         )}
 
         {optionsError && !optionsLoading && (

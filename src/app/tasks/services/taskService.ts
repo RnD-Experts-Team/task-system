@@ -14,9 +14,12 @@ import type {
   TaskSubtaskListApiResponse,
   TaskHelpRequestListApiResponse,
   TaskRatingListApiResponse,
+  TaskRatingRecord,
   Subtask,
   CreateSubtaskPayload,
   UpdateSubtaskPayload,
+  CreateTaskRatingPayload,
+  UpdateTaskRatingPayload,
 } from "../types"
 
 // Converts TaskListParams to a plain object safe to pass as Axios params.
@@ -318,6 +321,32 @@ class TaskService {
   async toggleSubtask(id: number): Promise<Subtask> {
     const response = await apiClient.post<Subtask>(`/subtasks/${id}/toggle`, {}, {
       toast: { success: "Subtask updated" },
+    } as never)
+    return response.data
+  }
+
+  // ─── Task Rating Endpoints ────────────────────────────────────
+
+  /**
+   * POST /task-ratings
+   * Creates a new rating for a task using the given config.
+   * rating_data keys are the field names from the config; values are numeric scores.
+   */
+  async createTaskRating(payload: CreateTaskRatingPayload): Promise<TaskRatingRecord> {
+    const response = await apiClient.post<TaskRatingRecord>("/task-ratings", payload, {
+      toast: { success: "Rating submitted successfully" },
+    } as never)
+    return response.data
+  }
+
+  /**
+   * PUT /task-ratings/{id}
+   * Updates an existing task rating by its ID.
+   * Partial update — only the fields provided will be changed.
+   */
+  async updateTaskRating(id: number, payload: UpdateTaskRatingPayload): Promise<TaskRatingRecord> {
+    const response = await apiClient.put<TaskRatingRecord>(`/task-ratings/${id}`, payload, {
+      toast: { success: "Rating updated successfully" },
     } as never)
     return response.data
   }

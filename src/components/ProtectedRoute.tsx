@@ -22,11 +22,19 @@ export function ProtectedRoute({
   const { hasPermission, hasAnyPermission, hasAllPermissions, hasRole } =
     usePermissions();
 
-  if (role && !hasRole(role)) {
-    return <>{fallback}</>;
-  }
+  // A user gains access if they satisfy the role check OR the permission check.
+  // Both must be absent to block access (i.e. failing one does not redirect if
+  // the other succeeds — admins can skip permission checks, developers rely on
+  // direct permissions).
+  const roleGranted = role ? hasRole(role) : null;
+  const permissionGranted = permission ? hasPermission(permission) : null;
 
-  if (permission && !hasPermission(permission)) {
+  // If at least one check is defined and none of the defined checks pass, block.
+  if (
+    (roleGranted !== null || permissionGranted !== null) &&
+    roleGranted !== true &&
+    permissionGranted !== true
+  ) {
     return <>{fallback}</>;
   }
 

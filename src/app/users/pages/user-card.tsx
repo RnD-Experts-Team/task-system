@@ -11,6 +11,12 @@ type UserCardProps = {
   onEdit: (user: User) => void
   onDelete: (user: User) => void
   onSelect: (user: User) => void
+  /** Show the Edit button — true when caller has "edit users" permission */
+  canEdit?: boolean
+  /** Show the Delete button — true when caller has "delete users" permission */
+  canDelete?: boolean
+  /** Allow clicking the user name to open the detail sheet — true when caller has "view users" */
+  canView?: boolean
 }
 
 function getInitials(name: string) {
@@ -28,7 +34,7 @@ const statusVariant: Record<string, "default" | "secondary" | "destructive"> = {
   suspended: "destructive",
 }
 
-export function UserCard({ user, onEdit, onDelete, onSelect }: UserCardProps) {
+export function UserCard({ user, onEdit, onDelete, onSelect, canEdit = true, canDelete = true, canView = true }: UserCardProps) {
   const { ref, style } = useTilt<HTMLDivElement>({ maxTilt: 5, scale: 1.015 })
 
   return (
@@ -56,13 +62,21 @@ export function UserCard({ user, onEdit, onDelete, onSelect }: UserCardProps) {
         </Avatar>
 
         <div className="flex flex-col items-center gap-2">
-          <button
-            type="button"
-            className="text-lg font-semibold text-foreground hover:text-primary hover:underline underline-offset-2 transition-colors"
-            onClick={() => onSelect(user)}
-          >
-            {user.name}
-          </button>
+          {/* User name — clicking opens the detail sheet.
+              Rendered as a plain span when the caller lacks "view users". */}
+          {canView ? (
+            <button
+              type="button"
+              className="text-lg font-semibold text-foreground hover:text-primary hover:underline underline-offset-2 transition-colors"
+              onClick={() => onSelect(user)}
+            >
+              {user.name}
+            </button>
+          ) : (
+            <span className="text-lg font-semibold text-foreground">
+              {user.name}
+            </span>
+          )}
           <Badge variant={statusVariant[user.status] ?? "secondary"} className="uppercase tracking-wider">
             {user.role}
           </Badge>
@@ -72,15 +86,24 @@ export function UserCard({ user, onEdit, onDelete, onSelect }: UserCardProps) {
         <span className="text-sm text-muted-foreground/70">Joined {user.createdAt}</span>
       </CardContent>
 
-      <CardFooter className="flex items-center gap-3 w-full mt-auto">
-        <Button variant="secondary" size="lg" className="flex-1 py-2" onClick={() => onEdit(user)}>
-          <Pencil />
-          Edit
-        </Button>
-        <Button variant="destructive" size="icon-lg" onClick={() => onDelete(user)}>
-          <Trash2 />
-        </Button>
-      </CardFooter>
+      {/* Footer — only rendered when at least one action button is permitted */}
+      {(canEdit || canDelete) && (
+        <CardFooter className="flex items-center gap-3 w-full mt-auto">
+          {/* Edit button — shown only with "edit users" permission */}
+          {canEdit && (
+            <Button variant="secondary" size="lg" className="flex-1 py-2" onClick={() => onEdit(user)}>
+              <Pencil />
+              Edit
+            </Button>
+          )}
+          {/* Delete button — shown only with "delete users" permission */}
+          {canDelete && (
+            <Button variant="destructive" size="icon-lg" onClick={() => onDelete(user)}>
+              <Trash2 />
+            </Button>
+          )}
+        </CardFooter>
+      )}
     </Card>
   )
 }

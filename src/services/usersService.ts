@@ -1,9 +1,12 @@
+import type { AxiosRequestConfig } from "axios"
 import { apiClient } from "@/services/api"
 import type { User as ApiUser, Role, Permission } from "@/types"
 import type { User, UserStatus } from "@/app/users/data"
 // Re-use the help-request types already defined in the help-requests module
 // so we don't duplicate the shape in two places.
 import type { HelpRequest, HelpRequestPagination } from "@/app/help-requests/types"
+// Re-use the ticket type from the tickets module for user-ticket endpoints.
+import type { ApiTicket } from "@/app/tickets/types"
 
 // ─── Pagination metadata returned by GET /users ───────────────────────────────
 export interface UsersPaginationMeta {
@@ -89,6 +92,7 @@ export interface CreateUserPayload {
   name: string
   email: string
   password: string
+  avatar?: File | null
 }
 
 /** Body sent to PUT /users/{id} — password is optional */
@@ -96,6 +100,34 @@ export interface UpdateUserPayload {
   name?: string
   email?: string
   password?: string | null
+  avatar?: File | null
+  removeAvatar?: boolean
+}
+
+function buildUserFormData(payload: CreateUserPayload | UpdateUserPayload): FormData {
+  const formData = new FormData()
+
+  if (payload.name !== undefined) {
+    formData.append("name", payload.name)
+  }
+
+  if (payload.email !== undefined) {
+    formData.append("email", payload.email)
+  }
+
+  if (payload.password) {
+    formData.append("password", payload.password)
+  }
+
+  if (payload.avatar) {
+    formData.append("avatar", payload.avatar)
+  }
+
+  if ("removeAvatar" in payload && payload.removeAvatar) {
+    formData.append("remove_avatar", "1")
+  }
+
+  return formData
 }
 
 // ─── Single-user API response shape ──────────────────────────────────────────
@@ -171,9 +203,10 @@ export const usersService = {
    * Returns the created user mapped to the UI type.
    */
   create: async (payload: CreateUserPayload): Promise<User> => {
-    const raw = (await apiClient.post<never>("/users", payload, {
+    const formData = buildUserFormData(payload)
+    const raw = (await apiClient.postMultipart<never>("/users", formData, {
       toast: { success: "User created successfully" },
-    } as never)) as unknown as SingleUserResponse
+    } as AxiosRequestConfig)) as unknown as SingleUserResponse
     return mapApiUserToUiUser(raw.data)
   },
 
@@ -182,10 +215,11 @@ export const usersService = {
    * Returns the updated user mapped to the UI type.
    */
   update: async (userId: string, payload: UpdateUserPayload): Promise<User> => {
-    const raw = (await apiClient.put<never>(
+    const formData = buildUserFormData(payload)
+    const raw = (await apiClient.postMultipart<never>(
       `/users/${userId}`,
-      payload,
-      { toast: { success: "User updated successfully" } } as never,
+      formData,
+      { toast: { success: "User updated successfully" } } as AxiosRequestConfig,
     )) as unknown as SingleUserResponse
     return mapApiUserToUiUser(raw.data)
   },
@@ -323,5 +357,50 @@ export const usersService = {
       message: string
     }
     return { helpRequests: raw.data, pagination: raw.pagination }
+  },
+
+  // ─── Tickets submitted by this user (as requester) ────────────────────────────
+
+  /**
+   * GET /users/{id}/tickets/requested
+   * Paginated list of tickets this user submitted.
+   * Reuses UsersPaginationMeta since both shapes are identical.
+   */
+  getUserRequestedTickets: async (
+    userId: string,
+    page = 1,
+  ): Promise<{ tickets: ApiTicket[]; pagination: UsersPaginationMeta }> => {
+    // Raw response: { success, data: ApiTicket[], pagination, message }
+    const raw = (await apiClient.get<never>(`/users/${userId}/tickets/requested`, {
+      params: { page },
+    })) as unknown as {
+      success: boolean
+      data: ApiTicket[]
+      pagination: UsersPaginationMeta
+      message: string
+    }
+    return { tickets: raw.data, pagination: raw.pagination }
+  },
+
+  // ─── Tickets assigned to this user ────────────────────────────────────────────
+
+  /**
+   * GET /users/{id}/tickets/assigned
+   * Paginated list of tickets currently assigned to this user.
+   */
+  getUserAssignedTickets: async (
+    userId: string,
+    page = 1,
+  ): Promise<{ tickets: ApiTicket[]; pagination: UsersPaginationMeta }> => {
+    // Raw response: { success, data: ApiTicket[], pagination, message }
+    const raw = (await apiClient.get<never>(`/users/${userId}/tickets/assigned`, {
+      params: { page },
+    })) as unknown as {
+      success: boolean
+      data: ApiTicket[]
+      pagination: UsersPaginationMeta
+      message: string
+    }
+    return { tickets: raw.data, pagination: raw.pagination }
   },
 }

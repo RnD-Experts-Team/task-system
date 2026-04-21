@@ -3,11 +3,12 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
-import { Plus, Search, LayoutList, LayoutGrid, AlertCircle, Loader2 } from "lucide-react"
+import { Plus, Search, LayoutList, LayoutGrid, AlertCircle } from "lucide-react"
 import { Pagination } from "@/components/pagination"
 import { PaginationInfo } from "@/components/pagination-info"
 import { RolesTableView } from "@/app/roles/pages/roles-table-view"
 import { RoleGridView } from "@/app/roles/pages/role-grid-view"
+import { RoleTableSkeleton, RoleGridSkeleton } from "@/app/roles/pages/role-skeletons"
 import { RoleFormSheet } from "@/app/roles/pages/role-form-sheet"
 import { RoleDetailSheet } from "@/app/roles/pages/role-detail-sheet"
 import { ConfirmDeleteRoleDialog } from "@/app/roles/pages/confirm-delete-role-dialog"
@@ -181,9 +182,7 @@ export default function RolesPage() {
 
         {/* Loading state */}
         {loading && (
-          <div className="flex items-center justify-center py-16">
-            <Loader2 className="size-6 animate-spin text-muted-foreground" />
-          </div>
+          view === "table" ? <RoleTableSkeleton /> : <RoleGridSkeleton />
         )}
 
         {/* Content (Table / Grid) */}

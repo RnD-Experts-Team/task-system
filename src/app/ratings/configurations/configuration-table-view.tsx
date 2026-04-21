@@ -17,13 +17,16 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { MoreHorizontal, Eye, Pencil, Trash2 } from "lucide-react"
-import type { Configuration } from "@/app/ratings/configurations/data"
+import type { ApiRatingConfig } from "@/app/ratings/configurations/types"
+
+// ─── Props ───────────────────────────────────────────────────────────────────
+// Consumes ApiRatingConfig (from the real API) instead of the legacy mock type
 
 type ConfigurationTableViewProps = {
-  configurations: Configuration[]
-  onView: (config: Configuration) => void
-  onEdit: (config: Configuration) => void
-  onDelete: (config: Configuration) => void
+  configurations: ApiRatingConfig[]
+  onView: (config: ApiRatingConfig) => void
+  onEdit: (config: ApiRatingConfig) => void
+  onDelete: (config: ApiRatingConfig) => void
 }
 
 function getInitials(name: string) {
@@ -81,38 +84,43 @@ export function ConfigurationTableView({
               </div>
             </TableCell>
             <TableCell className="py-3">
+              {/* type: API returns 'task_rating' or 'stakeholder_rating' */}
               <Badge
                 variant="outline"
                 className={
-                  config.type === "TASK"
+                  config.type === "task_rating"
                     ? "border-blue-500/40 bg-blue-500/10 text-blue-600 dark:text-blue-400"
                     : "border-purple-500/40 bg-purple-500/10 text-purple-600 dark:text-purple-400"
                 }
               >
-                {config.type === "TASK" ? "Task Rating" : "Stakeholder Rating"}
+                {config.type === "task_rating" ? "Task Rating" : "Stakeholder Rating"}
               </Badge>
             </TableCell>
             <TableCell className="py-3">
+              {/* is_active replaces the old 'status' string field */}
               <Badge
-                variant={config.status === "ACTIVE" ? "default" : "secondary"}
+                variant={config.is_active ? "default" : "secondary"}
                 className={
-                  config.status === "ACTIVE"
+                  config.is_active
                     ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20"
                     : ""
                 }
               >
-                {config.status === "ACTIVE" ? "Active" : "Inactive"}
+                {config.is_active ? "Active" : "Inactive"}
               </Badge>
             </TableCell>
             <TableCell className="py-3">
+              {/* fields live inside config_data.fields; default to empty array if absent */}
               <span className="text-sm text-muted-foreground">
-                {config.fields.length} {config.fields.length === 1 ? "field" : "fields"}
+                {(config.config_data?.fields ?? []).length}{" "}
+                {(config.config_data?.fields ?? []).length === 1 ? "field" : "fields"}
               </span>
             </TableCell>
             <TableCell className="py-3">
+              {/* creator.avatar_url instead of legacy creator.avatar */}
               <div className="flex items-center gap-2">
                 <Avatar className="size-7">
-                  <AvatarImage src={config.creator.avatar} alt={config.creator.name} />
+                  <AvatarImage src={config.creator.avatar_url ?? undefined} alt={config.creator.name} />
                   <AvatarFallback className="text-[10px]">
                     {getInitials(config.creator.name)}
                   </AvatarFallback>
@@ -121,7 +129,8 @@ export function ConfigurationTableView({
               </div>
             </TableCell>
             <TableCell className="py-3">
-              <span className="text-sm text-muted-foreground">{formatDate(config.createdAt)}</span>
+              {/* created_at (ISO string) instead of legacy createdAt */}
+              <span className="text-sm text-muted-foreground">{formatDate(config.created_at)}</span>
             </TableCell>
             <TableCell className="py-3 text-right">
               <DropdownMenu>

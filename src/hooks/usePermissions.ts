@@ -4,7 +4,7 @@ export function usePermissions() {
   const user = useAuthStore((s) => s.user);
   const allPermissions = useAuthStore((s) => s.allPermissions);
 
-  const userPermissions = allPermissions.map((p) => p.name);
+  const userPermissions = allPermissions.map((p) => p.name)?? [];
 
   const hasPermission = (name: string): boolean =>
     userPermissions.includes(name);

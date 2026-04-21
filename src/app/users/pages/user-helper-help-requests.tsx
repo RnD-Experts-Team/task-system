@@ -7,7 +7,6 @@
 import { useEffect } from "react"
 import {
   AlertCircle,
-  HandHelping,
   ChevronLeft,
   ChevronRight,
   CheckCircle2,
@@ -16,6 +15,7 @@ import {
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useUsersStore } from "@/app/users/stores/usersStore"
 import { helpRequestRatingLabel } from "@/app/help-requests/types"
@@ -81,47 +81,50 @@ export function UserHelperHelpRequests({ userId }: UserHelperHelpRequestsProps) 
   // ── Loading skeleton ─────────────────────────────────────────────────────
   if (userHelperHelpRequestsLoading && !userHelperHelpRequests) {
     return (
-      <div className="space-y-2">
-        {/* Section heading skeleton */}
-        <Skeleton className="h-4 w-44" />
-        {/* Card skeletons */}
-        {Array.from({ length: 3 }).map((_, i) => (
-          <Skeleton key={i} className="h-20 w-full rounded-md" />
-        ))}
-      </div>
+      <>
+        {/* Separator separates this section from whatever is rendered above it */}
+        <Separator />
+        <div className="space-y-2">
+          {/* Section heading skeleton */}
+          <Skeleton className="h-4 w-44" />
+          {/* Card skeletons */}
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} className="h-20 w-full rounded-md" />
+          ))}
+        </div>
+      </>
     )
   }
 
   // ── Error state (ignore cancelled requests — only show real failures) ────
   if (userHelperHelpRequestsError && !userHelperHelpRequests) {
     return (
-      <div className="flex flex-col items-center gap-3 py-6 text-center">
-        <AlertCircle className="size-7 text-destructive" />
-        <p className="text-sm text-destructive">{userHelperHelpRequestsError}</p>
-        {/* Retry button re-triggers page 1 */}
-        <Button variant="outline" size="sm" onClick={() => fetchUserHelperHelpRequests(userId, 1)}>
-          Retry
-        </Button>
-      </div>
+      <>
+        <Separator />
+        <div className="flex flex-col items-center gap-3 py-6 text-center">
+          <AlertCircle className="size-7 text-destructive" />
+          <p className="text-sm text-destructive">{userHelperHelpRequestsError}</p>
+          {/* Retry button re-triggers page 1 */}
+          <Button variant="outline" size="sm" onClick={() => fetchUserHelperHelpRequests(userId, 1)}>
+            Retry
+          </Button>
+        </div>
+      </>
     )
   }
 
-  // ── Empty state ──────────────────────────────────────────────────────────
-  if (userHelperHelpRequests && userHelperHelpRequests.length === 0) {
-    return (
-      <div className="flex flex-col items-center gap-2 py-6 text-center text-muted-foreground">
-        <HandHelping className="size-8 opacity-40" />
-        <p className="text-sm">This user hasn't helped on any requests yet.</p>
-      </div>
-    )
-  }
-
-  if (!userHelperHelpRequests) return null
+  // ── Empty / not-yet-loaded: hide section entirely ────────────────────────
+  // Returns null so no separator or heading appears when there are no requests.
+  if (!userHelperHelpRequests || userHelperHelpRequests.length === 0) return null
 
   const pagination = userHelperHelpRequestsPagination
 
   return (
-    <div className="space-y-3">
+    <>
+      {/* Separator separates this section from whatever rendered above it */}
+      <Separator />
+
+      <div className="space-y-3">
       {/* ── Section heading ─────────────────────────────────────────────── */}
       <div className="flex items-center justify-between">
         <h4 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">
@@ -240,5 +243,6 @@ export function UserHelperHelpRequests({ userId }: UserHelperHelpRequestsProps) 
         </div>
       )}
     </div>
+    </>
   )
 }

@@ -29,12 +29,20 @@ const ConfigurationDetailPage = lazy(() => import("@/app/ratings/configurations/
 const CreateConfigurationPage = lazy(() => import("@/app/ratings/configurations/create-configuration"))
 const EditConfigurationPage = lazy(() => import("@/app/ratings/configurations/edit-configuration"))
 const RatingsPage = lazy(() => import("@/app/ratings/ratings/page"))
+const TaskRatingPage = lazy(() => import("@/app/ratings/ratings/task-rating-page"))
 const FinalRatingsPage = lazy(() => import("@/app/ratings/final-ratings/page"))
 const WeightedRatingsPage = lazy(() => import("@/app/ratings/weighted-ratings/page"))
 const ClockingInOutPage = lazy(() => import("@/app/clocking/in-out/page"))
 const ClockingRecordsPage = lazy(() => import("@/app/clocking/records/page"))
 const ClockingSessionsPage = lazy(() => import("@/app/clocking/sessions/page"))
 const RolesPage = lazy(() => import("@/app/roles/page"))
+const WorkspacesPage = lazy(() => import("@/app/workspaces/page"))
+const CreateWorkspacePage = lazy(() => import("@/app/workspaces/create-workspace-page"))
+const EditWorkspacePage = lazy(() => import("@/app/workspaces/edit-workspace-page"))
+const WorkspaceDetailsPage = lazy(() => import("@/app/workspaces/workspace-details-page"))
+const CreateTodoPage = lazy(() => import("@/app/workspaces/create-todo-page"))
+const EditTodoPage = lazy(() => import("@/app/workspaces/edit-todo-page"))
+const TodoDetailPage = lazy(() => import("@/app/workspaces/todo-detail-page"))
 const AccountPage = lazy(() => import("@/app/account/page"))
 const NotFoundPage = lazy(() => import("@/app/not-found"))
 
@@ -78,12 +86,21 @@ function App() {
                   <Route path="ratings/configurations/:id" element={<ConfigurationDetailPage />} />
                   <Route path="ratings/configurations/:id/edit" element={<EditConfigurationPage />} />
                   <Route path="ratings" element={<RatingsPage />} />
+                  {/* Rating form for a specific task — GET /tasks/:id then POST/PUT /task-ratings */}
+                  <Route path="ratings/tasks/:taskId/rate" element={<TaskRatingPage />} />
                   <Route path="ratings/final-ratings" element={<FinalRatingsPage />} />
                   <Route path="ratings/weighted-ratings" element={<WeightedRatingsPage />} />
                   <Route path="clocking/in-out" element={<ClockingInOutPage />} />
                   <Route path="clocking/records" element={<ClockingRecordsPage />} />
                   <Route path="clocking/sessions" element={<ClockingSessionsPage />} />
                   <Route path="roles" element={<RolesPage />} />
+                  <Route path="workspaces" element={<WorkspacesPage />} />
+                  <Route path="workspaces/create" element={<CreateWorkspacePage />} />
+                  <Route path="workspaces/:id/edit" element={<EditWorkspacePage />} />
+                  <Route path="workspaces/:id" element={<WorkspaceDetailsPage />} />
+                  <Route path="workspaces/:id/todos/create" element={<CreateTodoPage />} />
+                  <Route path="workspaces/:id/todos/:todoId/edit" element={<EditTodoPage />} />
+                  <Route path="workspaces/:id/todos/:todoId" element={<TodoDetailPage />} />
                   <Route path="account" element={<AccountPage />} />
                   <Route path="*" element={<NotFoundPage />} />
                 </Route>

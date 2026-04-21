@@ -1,4 +1,54 @@
-// ─── Types ───────────────────────────────────────────────────────
+// ─── API Response Types (match backend ClockingService responses) ─────
+
+/** Status values the backend uses for a clock session */
+export type ClockSessionStatus = "active" | "on_break" | "completed"
+
+/** Status values the backend uses for a break record */
+export type BreakRecordStatus = "active" | "completed"
+
+/** A single break record from the API */
+export interface BreakRecord {
+  id: number
+  clock_session_id: number
+  break_start_utc: string // ISO 8601
+  break_end_utc: string | null // ISO 8601 or null if still active
+  description: string | null
+  status: BreakRecordStatus
+  created_at: string
+  updated_at: string
+}
+
+/** The user object nested inside a session */
+export interface SessionUser {
+  id: number
+  name: string
+  email: string
+  avatar_url: string | null
+}
+
+/** A clock session from the API */
+export interface ClockSession {
+  id: number
+  user_id: number
+  clock_in_utc: string // ISO 8601
+  clock_out_utc: string | null // ISO 8601 or null if active
+  session_date: string // YYYY-MM-DD
+  status: ClockSessionStatus
+  crosses_midnight: boolean
+  break_records: BreakRecord[]
+  user: SessionUser
+  created_at: string
+  updated_at: string
+}
+
+/** Shape returned by every clocking endpoint (initial-data, clock-in, etc.) */
+export interface ClockingSessionResponse {
+  session: ClockSession | null
+  company_timezone: string
+  server_time_utc: string // ISO 8601
+}
+
+// ─── UI Types ────────────────────────────────────────────────────
 
 export type ClockingStatus = "working" | "on-break" | "clocked-out"
 
@@ -62,6 +112,66 @@ export interface CorrectionRequest {
   requestedTime: string
   reason: string
   status: CorrectionRequestStatus
+}
+
+// ─── API Types for Records Endpoint ─────────────────────────────
+
+/**
+ * A single record item returned by GET /clocking/records.
+ * Alias of ClockSession — backend returns the model directly.
+ */
+export type ClockRecordApiItem = ClockSession
+
+/** Pagination metadata returned alongside GET /clocking/records */
+export interface ClockRecordsPagination {
+  current_page: number
+  total: number
+  per_page: number
+  last_page: number
+  from: number | null
+  to: number | null
+}
+
+/**
+ * Correction type values accepted by POST /clocking/correction-request.
+ * clock_in / clock_out refer to the session start/end.
+ * break_in / break_out refer to a specific break record start/end.
+ */
+export type ApiCorrectionType = "clock_in" | "clock_out" | "break_in" | "break_out"
+
+/** Payload shape for POST /clocking/correction-request */
+export interface CorrectionRequestPayload {
+  correction_type: ApiCorrectionType
+  reason: string
+  /** UTC timestamp — must match ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$ */
+  requested_time_utc: string
+  break_record_id?: number | null
+  clock_session_id?: number | null
+}
+
+/**
+ * A correction request returned by:
+ *   - POST /clocking/correction-request (201 response)
+ *   - GET  /clocking/pending-corrections (array items)
+ */
+export interface PendingCorrectionApiItem {
+  id: number
+  user_id: number
+  clock_session_id: number | null
+  break_record_id: number | null
+  correction_type: ApiCorrectionType
+  original_time_utc: string
+  requested_time_utc: string
+  reason: string
+  /** pending → awaiting manager review; approved/rejected → handled */
+  status: "pending" | "approved" | "rejected"
+  admin_notes: string | null
+  approved_by: number | null
+  approved_at: string | null
+  clock_session: ClockSession | null
+  break_record: BreakRecord | null
+  created_at: string
+  updated_at: string
 }
 
 // ─── Mock Data ──────────────────────────────────────────────────

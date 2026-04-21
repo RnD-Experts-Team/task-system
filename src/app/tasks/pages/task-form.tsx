@@ -13,6 +13,7 @@ import { useState, useEffect } from "react"
 import { AxiosError, isCancel } from "axios"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { DateInput } from "@/components/ui/date-input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -482,9 +483,8 @@ export function TaskForm({ mode, initialData, defaultProjectId, defaultSectionId
                 {/* Due Date — YYYY-MM-DD (RFC 3339 full-date) */}
                 <div className="space-y-2">
                   <Label htmlFor="due_date">Due Date *</Label>
-                  <Input
+                  <DateInput
                     id="due_date"
-                    type="date"
                     value={dueDate}
                     onChange={(e) => setDueDate(e.target.value)}
                     className="h-12 text-sm"

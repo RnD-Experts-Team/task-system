@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
+import { Skeleton } from "@/components/ui/skeleton"
 import {
   Sheet,
   SheetContent,
@@ -18,8 +19,12 @@ import {
   User,
   ListChecks,
   SlidersHorizontal,
+  AlertCircle,
 } from "lucide-react"
-import { configurations } from "@/app/ratings/configurations/data"
+// Hook fetches GET /rating-configs/{id} from the store
+import { useRatingConfig } from "@/app/ratings/configurations/hooks/useRatingConfig"
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function getInitials(name: string) {
   return name
@@ -37,11 +42,16 @@ function formatDate(dateStr: string) {
   })
 }
 
+// ─── Props ────────────────────────────────────────────────────────────────────
+
 type ConfigurationDetailSheetProps = {
-  configId: string | null
+  /** Numeric config ID (API uses numbers); null means sheet is closed */
+  configId: number | null
   open: boolean
   onOpenChange: (open: boolean) => void
 }
+
+// ─── Component ────────────────────────────────────────────────────────────────
 
 export function ConfigurationDetailSheet({
   configId,
@@ -49,14 +59,46 @@ export function ConfigurationDetailSheet({
   onOpenChange,
 }: ConfigurationDetailSheetProps) {
   const navigate = useNavigate()
-  const config = configId
-    ? configurations.find((c) => c.id === configId)
-    : null
+
+  // Fetch the config from GET /rating-configs/{id} via the store.
+  // Pass null when sheet is closed to skip unnecessary fetches.
+  const { config, loading, error } = useRatingConfig(open ? configId : null)
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="sm:max-w-lg overflow-y-auto">
-        {!config ? (
+
+        {/* ── Loading skeleton ─────────────────────────────────── */}
+        {loading && (
+          <div className="flex flex-col gap-5 px-6 py-4">
+            <div className="flex items-center gap-2">
+              <Skeleton className="h-5 w-20 rounded-full" />
+              <Skeleton className="h-5 w-16 rounded-full" />
+            </div>
+            <Skeleton className="h-6 w-3/4" />
+            <Skeleton className="h-4 w-full" />
+            <Separator />
+            {[1, 2, 3].map((i) => (
+              <Skeleton key={i} className="h-12 w-full rounded-md" />
+            ))}
+          </div>
+        )}
+
+        {/* ── API Error ─────────────────────────────────────────── */}
+        {!loading && error && (
+          <div className="flex flex-1 flex-col items-center justify-center gap-4 py-16 text-center">
+            <div className="rounded-full bg-destructive/10 p-4">
+              <AlertCircle className="size-6 text-destructive" />
+            </div>
+            <div>
+              <p className="font-semibold text-foreground">Failed to load</p>
+              <p className="text-sm text-muted-foreground mt-1 max-w-xs">{error}</p>
+            </div>
+          </div>
+        )}
+
+        {/* ── Config not found (no error, not loading, no data) ─── */}
+        {!loading && !error && !config && (
           <div className="flex flex-1 flex-col items-center justify-center gap-4 py-16 text-center">
             <div className="rounded-full bg-muted p-4">
               <SlidersHorizontal className="size-6 text-muted-foreground" />
@@ -66,36 +108,40 @@ export function ConfigurationDetailSheet({
                 Configuration not found
               </p>
               <p className="text-sm text-muted-foreground mt-1">
-                The configuration you are looking for does not exist or has been
-                removed.
+                The configuration you are looking for does not exist or has been removed.
               </p>
             </div>
           </div>
-        ) : (
+        )}
+
+        {/* ── Config detail ─────────────────────────────────────── */}
+        {!loading && !error && config && (
           <>
             <SheetHeader>
+              {/* type is 'task_rating' | 'stakeholder_rating' (API snake_case) */}
               <div className="flex flex-wrap items-center gap-2">
                 <Badge
                   variant="outline"
                   className={
-                    config.type === "TASK"
+                    config.type === "task_rating"
                       ? "border-blue-500/40 bg-blue-500/10 text-blue-600 dark:text-blue-400"
                       : "border-purple-500/40 bg-purple-500/10 text-purple-600 dark:text-purple-400"
                   }
                 >
-                  {config.type === "TASK"
+                  {config.type === "task_rating"
                     ? "Task Rating"
                     : "Stakeholder Rating"}
                 </Badge>
+                {/* is_active replaces the old 'status' string */}
                 <Badge
-                  variant={config.status === "ACTIVE" ? "default" : "secondary"}
+                  variant={config.is_active ? "default" : "secondary"}
                   className={
-                    config.status === "ACTIVE"
+                    config.is_active
                       ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20"
                       : ""
                   }
                 >
-                  {config.status === "ACTIVE" ? "Active" : "Inactive"}
+                  {config.is_active ? "Active" : "Inactive"}
                 </Badge>
               </div>
               <SheetTitle className="text-lg">{config.name}</SheetTitle>
@@ -120,7 +166,7 @@ export function ConfigurationDetailSheet({
                 Edit Configuration
               </Button>
 
-              {/* Rating Fields */}
+              {/* Rating Fields — live inside config_data.fields (API shape) */}
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
                   <div className="rounded-lg bg-primary/10 p-1.5">
@@ -128,17 +174,17 @@ export function ConfigurationDetailSheet({
                   </div>
                   <span className="text-sm font-semibold">Rating Fields</span>
                   <Badge variant="secondary" className="ml-auto text-xs">
-                    {config.fields.length}{" "}
-                    {config.fields.length === 1 ? "field" : "fields"}
+                    {(config.config_data?.fields ?? []).length}{" "}
+                    {(config.config_data?.fields ?? []).length === 1 ? "field" : "fields"}
                   </Badge>
                 </div>
-                {config.fields.length === 0 ? (
+                {(config.config_data?.fields ?? []).length === 0 ? (
                   <p className="text-xs text-muted-foreground py-2 text-center">
                     No fields defined yet.
                   </p>
                 ) : (
                   <div className="divide-y divide-border rounded-md border">
-                    {config.fields.map((field, index) => (
+                    {(config.config_data?.fields ?? []).map((field, index) => (
                       <div
                         key={field.id}
                         className="flex items-start justify-between gap-3 px-3 py-2.5"
@@ -158,11 +204,12 @@ export function ConfigurationDetailSheet({
                             )}
                           </div>
                         </div>
+                        {/* max_value (snake_case) instead of legacy maxValue */}
                         <Badge
                           variant="outline"
                           className="text-[10px] whitespace-nowrap shrink-0"
                         >
-                          Max {field.maxValue}
+                          Max {field.max_value}
                         </Badge>
                       </div>
                     ))}
@@ -181,9 +228,10 @@ export function ConfigurationDetailSheet({
                   <span className="text-sm font-semibold">Creator</span>
                 </div>
                 <div className="flex items-center gap-3">
+                  {/* avatar_url (nullable) instead of legacy avatar string */}
                   <Avatar className="size-8">
                     <AvatarImage
-                      src={config.creator.avatar}
+                      src={config.creator.avatar_url ?? undefined}
                       alt={config.creator.name}
                     />
                     <AvatarFallback className="text-[10px]">
@@ -218,8 +266,9 @@ export function ConfigurationDetailSheet({
                       <p className="text-[10px] text-muted-foreground">
                         Created
                       </p>
+                      {/* created_at (ISO string from API) */}
                       <p className="text-xs font-medium">
-                        {formatDate(config.createdAt)}
+                        {formatDate(config.created_at)}
                       </p>
                     </div>
                   </div>
@@ -229,8 +278,9 @@ export function ConfigurationDetailSheet({
                       <p className="text-[10px] text-muted-foreground">
                         Updated
                       </p>
+                      {/* updated_at (ISO string from API) */}
                       <p className="text-xs font-medium">
-                        {formatDate(config.updatedAt)}
+                        {formatDate(config.updated_at)}
                       </p>
                     </div>
                   </div>
@@ -250,42 +300,36 @@ export function ConfigurationDetailSheet({
                 <div className="space-y-2">
                   <div className="flex items-center justify-between rounded-md border px-3 py-2">
                     <span className="text-xs text-muted-foreground">Type</span>
+                    {/* type is 'task_rating' | 'stakeholder_rating' */}
                     <Badge
                       variant="outline"
                       className={
-                        config.type === "TASK"
+                        config.type === "task_rating"
                           ? "border-blue-500/40 bg-blue-500/10 text-blue-600 dark:text-blue-400 text-[10px]"
                           : "border-purple-500/40 bg-purple-500/10 text-purple-600 dark:text-purple-400 text-[10px]"
                       }
                     >
-                      {config.type === "TASK"
-                        ? "Task Rating"
-                        : "Stakeholder"}
+                      {config.type === "task_rating" ? "Task Rating" : "Stakeholder"}
                     </Badge>
                   </div>
                   <div className="flex items-center justify-between rounded-md border px-3 py-2">
-                    <span className="text-xs text-muted-foreground">
-                      Status
-                    </span>
+                    <span className="text-xs text-muted-foreground">Status</span>
+                    {/* is_active (boolean) replaces the old 'status' string */}
                     <Badge
-                      variant={
-                        config.status === "ACTIVE" ? "default" : "secondary"
-                      }
+                      variant={config.is_active ? "default" : "secondary"}
                       className={
-                        config.status === "ACTIVE"
+                        config.is_active
                           ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30 text-[10px]"
                           : "text-[10px]"
                       }
                     >
-                      {config.status === "ACTIVE" ? "Active" : "Inactive"}
+                      {config.is_active ? "Active" : "Inactive"}
                     </Badge>
                   </div>
                   <div className="flex items-center justify-between rounded-md border px-3 py-2">
-                    <span className="text-xs text-muted-foreground">
-                      Fields
-                    </span>
+                    <span className="text-xs text-muted-foreground">Fields</span>
                     <span className="text-xs font-semibold">
-                      {config.fields.length}
+                      {(config.config_data?.fields ?? []).length}
                     </span>
                   </div>
                 </div>
@@ -306,7 +350,8 @@ export default function ConfigurationDetailPage() {
 
   return (
     <ConfigurationDetailSheet
-      configId={id ?? null}
+      // Parse the URL string param to a number; null when missing or NaN
+      configId={id ? Number(id) : null}
       open={true}
       onOpenChange={(open) => {
         if (!open) navigate("/ratings/configurations")

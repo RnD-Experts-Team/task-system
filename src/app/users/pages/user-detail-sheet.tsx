@@ -15,13 +15,17 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Pencil, Shield, Code } from "lucide-react"
 import type { User } from "@/app/users/data"
 import { useUsers } from "@/hooks/useUsers"
+import { usePermissions } from "@/hooks/usePermissions"
 import { UserRolesPermissions } from "@/app/users/pages/user-roles-permissions"
 // Sections rendered inside the Overview tab
 import { UserProjects }                from "@/app/users/pages/user-projects"
 import { UserTaskAssignments }         from "@/app/users/pages/user-task-assignments"
-// Two new help-request sections for requests submitted by this user and requests where they assist
+// Two help-request sections: submitted by this user and requests where they assist
 import { UserRequestedHelpRequests }   from "@/app/users/pages/user-requested-help-requests"
 import { UserHelperHelpRequests }      from "@/app/users/pages/user-helper-help-requests"
+// Two ticket sections: tickets submitted by this user and tickets assigned to them
+import { UserRequestedTickets }        from "@/app/users/pages/user-requested-tickets"
+import { UserAssignedTickets }         from "@/app/users/pages/user-assigned-tickets"
 
 type UserDetailSheetProps = {
   /** The user whose details should be fetched (only `id` is needed) */
@@ -59,10 +63,18 @@ export function UserDetailSheet({ user, open, onOpenChange, onEdit }: UserDetail
     getUser,
     clearUserProjects,
     clearUserTaskAssignments,
-    // Actions to clear the two new help-request slices on sheet close
+    // Actions to clear help-request slices on sheet close
     clearUserRequestedHelpRequests,
     clearUserHelperHelpRequests,
+    // Actions to clear ticket slices on sheet close
+    clearUserRequestedTickets,
+    clearUserAssignedTickets,
   } = useUsers()
+
+  // Read the current user's permissions to control sheet sections.
+  const { hasPermission } = usePermissions()
+  // "edit users" controls the Edit button visibility inside the sheet.
+  const canEditUsers = hasPermission("edit users")
 
   // Fetch full details whenever the sheet opens with a user
   useEffect(() => {
@@ -80,6 +92,9 @@ export function UserDetailSheet({ user, open, onOpenChange, onEdit }: UserDetail
       clearUserTaskAssignments()
       clearUserRequestedHelpRequests()
       clearUserHelperHelpRequests()
+      // Also clear ticket sections to avoid showing previous user's tickets
+      clearUserRequestedTickets()
+      clearUserAssignedTickets()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
@@ -133,80 +148,86 @@ export function UserDetailSheet({ user, open, onOpenChange, onEdit }: UserDetail
               </div>
             </SheetHeader>
 
-            <div className="px-8 pb-10 space-y-8">
+              <div className="px-8 pb-10 space-y-8">
               {/* Tabs: Overview and Roles & Permissions */}
-              <Tabs defaultValue="overview" className="w-full">
-                <TabsList className="w-full">
-                  <TabsTrigger value="overview" className="flex-1">Overview</TabsTrigger>
-                  <TabsTrigger value="roles" className="flex-1">Roles & Permissions</TabsTrigger>
-                </TabsList>
+                <Tabs defaultValue="overview" className="w-full">
+                  <TabsList className="w-full">
+                    <TabsTrigger value="overview" className="flex-1">Overview</TabsTrigger>
+                    <TabsTrigger value="roles" className="flex-1">Roles & Permissions</TabsTrigger>
+                  </TabsList>
 
-                {/* ── Overview tab ─────────────────────────────────────────── */}
-                <TabsContent value="overview" className="space-y-6 pt-4">
-                  {/* Quick Info cards */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="rounded-lg bg-muted/50 p-4">
-                      <p className="text-sm font-semibold uppercase tracking-widest text-muted-foreground mb-1">
-                        Joined
-                      </p>
-                      <p className="text-sm font-medium">{detail.createdAt}</p>
+                  {/* ── Overview tab ─────────────────────────────────────────── */}
+                  <TabsContent value="overview" className="space-y-6 pt-4">
+                    {/* Quick Info cards */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="rounded-lg bg-muted/50 p-4">
+                        <p className="text-sm font-semibold uppercase tracking-widest text-muted-foreground mb-1">
+                          Joined
+                        </p>
+                        <p className="text-sm font-medium">{detail.createdAt}</p>
+                      </div>
+                      <div className="rounded-lg bg-muted/50 p-4">
+                        <p className="text-sm font-semibold uppercase tracking-widest text-muted-foreground mb-1">
+                          Status
+                        </p>
+                        <p className="text-sm font-medium flex items-center gap-2">
+                          <span
+                            className={`size-3 rounded-full ${
+                              detail.status === "active"
+                                ? "bg-primary"
+                                : detail.status === "away"
+                                  ? "bg-yellow-500"
+                                  : "bg-destructive"
+                            }`}
+                          />
+                          {statusLabel[detail.status] ?? detail.status}
+                        </p>
+                      </div>
                     </div>
-                    <div className="rounded-lg bg-muted/50 p-4">
-                      <p className="text-sm font-semibold uppercase tracking-widest text-muted-foreground mb-1">
-                        Status
-                      </p>
-                      <p className="text-sm font-medium flex items-center gap-2">
-                        <span
-                          className={`size-3 rounded-full ${
-                            detail.status === "active"
-                              ? "bg-primary"
-                              : detail.status === "away"
-                                ? "bg-yellow-500"
-                                : "bg-destructive"
-                          }`}
-                        />
-                        {statusLabel[detail.status] ?? detail.status}
-                      </p>
-                    </div>
-                  </div>
 
-                  <Separator />
+                    <Separator />
 
-                  {/* Projects where this user is the stakeholder */}
-                  <UserProjects userId={detail.id} />
+                    {/* Projects where this user is the stakeholder — always renders */}
+                    <UserProjects userId={detail.id} />
 
-                  <Separator />
+                    {/* The sections below each manage their own leading <Separator />.
+                        They render nothing (null) when the user has no data for that
+                        category, keeping the sheet clean.                           */}
 
-                  {/* Tasks assigned to this user */}
-                  <UserTaskAssignments userId={detail.id} />
+                    {/* Tasks assigned to this user */}
+                    <UserTaskAssignments userId={detail.id} />
 
-                  <Separator />
+                    {/* Help requests submitted by this user (they are the requester) */}
+                    <UserRequestedHelpRequests userId={detail.id} />
 
-                  {/* Help requests submitted by this user (they are the requester) */}
-                  <UserRequestedHelpRequests userId={detail.id} />
+                    {/* Help requests where this user is the assigned helper */}
+                    <UserHelperHelpRequests userId={detail.id} />
 
-                  <Separator />
+                    {/* Support tickets submitted by this user */}
+                    <UserRequestedTickets userId={detail.id} />
 
-                  {/* Help requests where this user is the assigned helper */}
-                  <UserHelperHelpRequests userId={detail.id} />
+                    {/* Support tickets currently assigned to this user */}
+                    <UserAssignedTickets userId={detail.id} />
 
-                  <Separator />
+                    <Separator />
 
-                  {/* Edit User action */}
-                  {onEdit && (
-                    <Button variant="secondary" size="lg" className="w-full" onClick={() => onEdit(detail)}>
-                      <Pencil />
-                      Edit User
-                    </Button>
-                  )}
-                </TabsContent>
+                    {/* Edit User button — only shown when onEdit is provided AND
+                        the current user holds the "edit users" permission */}
+                    {onEdit && canEditUsers && (
+                      <Button variant="secondary" size="lg" className="w-full" onClick={() => onEdit(detail)}>
+                        <Pencil />
+                        Edit User
+                      </Button>
+                    )}
+                  </TabsContent>
 
-                {/* ── Roles & Permissions tab ──────────────────────────────── */}
-                <TabsContent value="roles" className="pt-4">
-                  <UserRolesPermissions userId={detail.id} />
-                </TabsContent>
-              </Tabs>
-            </div>
+                  {/* ── Roles & Permissions tab ──────────────────────────────── */}
+                  <TabsContent value="roles" className="pt-4">
+                    {/* Pass canEdit so UserRolesPermissions can guard its save buttons */}
+                    <UserRolesPermissions userId={detail.id} canEdit={canEditUsers} />
+                  </TabsContent>
+                </Tabs>
+              </div>
           </>
         )}
       </SheetContent>

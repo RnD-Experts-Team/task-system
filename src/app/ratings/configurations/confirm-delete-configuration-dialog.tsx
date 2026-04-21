@@ -8,13 +8,18 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import type { Configuration } from "@/app/ratings/configurations/data"
+// Use the real API type instead of the legacy local Configuration type
+import type { ApiRatingConfig } from "@/app/ratings/configurations/types"
 
 type ConfirmDeleteConfigurationDialogProps = {
-  configuration: Configuration | null
+  /** The config to delete; null when dialog is closed */
+  configuration: ApiRatingConfig | null
   open: boolean
   onOpenChange: (open: boolean) => void
+  /** Called when the user confirms deletion (API call happens in parent) */
   onConfirm: () => void
+  /** Shows a spinner on the Delete button while the API request is in flight */
+  deleting?: boolean
 }
 
 export function ConfirmDeleteConfigurationDialog({
@@ -22,6 +27,7 @@ export function ConfirmDeleteConfigurationDialog({
   open,
   onOpenChange,
   onConfirm,
+  deleting = false,
 }: ConfirmDeleteConfigurationDialogProps) {
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
@@ -35,12 +41,18 @@ export function ConfirmDeleteConfigurationDialog({
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <AlertDialogAction variant="destructive" onClick={onConfirm}>
-            Delete
+          {/* Prevent closing while delete is in progress */}
+          <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            variant="destructive"
+            onClick={onConfirm}
+            disabled={deleting}
+          >
+            {deleting ? "Deleting…" : "Delete"}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
   )
 }
+

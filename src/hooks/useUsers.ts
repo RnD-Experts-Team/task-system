@@ -43,6 +43,16 @@ export function useUsers(initialPage = 1) {
     userHelperHelpRequestsPagination,
     userHelperHelpRequestsLoading,
     userHelperHelpRequestsError,
+    // Requested tickets state
+    userRequestedTickets,
+    userRequestedTicketsPagination,
+    userRequestedTicketsLoading,
+    userRequestedTicketsError,
+    // Assigned tickets state
+    userAssignedTickets,
+    userAssignedTicketsPagination,
+    userAssignedTicketsLoading,
+    userAssignedTicketsError,
     // Actions
     fetchUsers,
     getUser,
@@ -69,6 +79,12 @@ export function useUsers(initialPage = 1) {
     // Helper help-requests actions
     fetchUserHelperHelpRequests,
     clearUserHelperHelpRequests,
+    // Requested tickets actions
+    fetchUserRequestedTickets,
+    clearUserRequestedTickets,
+    // Assigned tickets actions
+    fetchUserAssignedTickets,
+    clearUserAssignedTickets,
   } = useUsersStore()
 
   // Fetch on mount; re-runs only if initialPage changes
@@ -173,5 +189,31 @@ export function useUsers(initialPage = 1) {
     fetchUserHelperHelpRequests,
     /** Clear helper help requests from store */
     clearUserHelperHelpRequests,
+    // ── Requested Tickets ────────────────────────────────────────────────────
+    /** Tickets submitted by this user (as requester) */
+    userRequestedTickets,
+    /** Pagination metadata for requested tickets */
+    userRequestedTicketsPagination,
+    /** True while loading requested tickets */
+    userRequestedTicketsLoading,
+    /** Error from requested-tickets fetch */
+    userRequestedTicketsError,
+    /** Fetch a page of tickets requested by this user */
+    fetchUserRequestedTickets,
+    /** Clear requested tickets from store */
+    clearUserRequestedTickets,
+    // ── Assigned Tickets ─────────────────────────────────────────────────────
+    /** Tickets currently assigned to this user */
+    userAssignedTickets,
+    /** Pagination metadata for assigned tickets */
+    userAssignedTicketsPagination,
+    /** True while loading assigned tickets */
+    userAssignedTicketsLoading,
+    /** Error from assigned-tickets fetch */
+    userAssignedTicketsError,
+    /** Fetch a page of tickets assigned to this user */
+    fetchUserAssignedTickets,
+    /** Clear assigned tickets from store */
+    clearUserAssignedTickets,
   } as const
 }

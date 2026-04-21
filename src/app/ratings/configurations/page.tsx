@@ -1,88 +1,120 @@
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { useNavigate } from "react-router"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Plus, Search, Settings2 } from "lucide-react"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Plus, Search, Settings2, AlertCircle } from "lucide-react"
 import { Pagination } from "@/components/pagination"
 import { usePagination } from "@/hooks/use-pagination"
 import { ConfigurationTableView } from "@/app/ratings/configurations/configuration-table-view"
 import { ConfirmDeleteConfigurationDialog } from "@/app/ratings/configurations/confirm-delete-configuration-dialog"
 import { ConfigurationDetailSheet } from "@/app/ratings/configurations/configuration-detail"
-import { configurations as initialConfigurations } from "@/app/ratings/configurations/data"
-import type { Configuration, ConfigurationType } from "@/app/ratings/configurations/data"
-import { toast } from "sonner"
 import InlineStats from "@/components/inline-stats"
+// ── API hooks — replace the old mock-data local state ───────────────────────
+import { useRatingConfigs } from "@/app/ratings/configurations/hooks/useRatingConfigs"
+import { useRatingConfigsByType } from "@/app/ratings/configurations/hooks/useRatingConfigsByType"
+import { useDeleteRatingConfig } from "@/app/ratings/configurations/hooks/useDeleteRatingConfig"
+import type { ApiRatingConfig, ApiRatingConfigType } from "@/app/ratings/configurations/types"
 
-type TypeFilter = ConfigurationType | "ALL"
+// "ALL" stays client-side; the other two values call GET /rating-configs/type/{type}
+type TypeFilter = "ALL" | ApiRatingConfigType
 
 const typeOptions: { value: TypeFilter; label: string }[] = [
   { value: "ALL", label: "All" },
-  { value: "TASK", label: "Task Rating" },
-  { value: "STAKEHOLDER", label: "Stakeholder Rating" },
+  { value: "task_rating", label: "Task Rating" },
+  { value: "stakeholder_rating", label: "Stakeholder Rating" },
 ]
 
 export default function RatingsConfigurationsPage() {
   const navigate = useNavigate()
-  const [data, setData] = useState<Configuration[]>(initialConfigurations)
+
+  // ── API hooks ───────────────────────────────────────────────────
+  // Full list: called on mount, always available for the ALL tab and stats
+  const { configs, loading, error, refetch, clearError } = useRatingConfigs()
+  // By-type: lazy — triggered when TASK or STAKEHOLDER tab is selected
+  const {
+    configsByType,
+    loading: typeLoading,
+    error: typeError,
+    fetchByType,
+    clearError: clearTypeError,
+  } = useRatingConfigsByType()
+  // Delete: wraps DELETE /rating-configs/{id}
+  const { deleteConfig: apiDelete, deleting } = useDeleteRatingConfig()
+
+  // ── UI state ────────────────────────────────────────────────────
   const [search, setSearch] = useState("")
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("ALL")
-
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const [deleteConfig, setDeleteConfig] = useState<Configuration | null>(null)
-
+  const [deleteConfig, setDeleteConfig] = useState<ApiRatingConfig | null>(null)
   const [detailOpen, setDetailOpen] = useState(false)
-  const [detailConfigId, setDetailConfigId] = useState<string | null>(null)
+  // detailConfigId is now a number (API uses numeric IDs)
+  const [detailConfigId, setDetailConfigId] = useState<number | null>(null)
 
-  const filtered = useMemo(() => {
-    let result = data
+  // When a type tab is selected, call GET /rating-configs/type/{type}
+  useEffect(() => {
     if (typeFilter !== "ALL") {
-      result = result.filter((c) => c.type === typeFilter)
+      fetchByType(typeFilter as ApiRatingConfigType)
     }
-    if (search.trim()) {
-      const q = search.toLowerCase()
-      result = result.filter(
-        (c) =>
-          c.name.toLowerCase().includes(q) ||
-          c.description?.toLowerCase().includes(q) ||
-          c.creator.name.toLowerCase().includes(q)
-      )
-    }
-    return result
-  }, [data, search, typeFilter])
+  }, [typeFilter, fetchByType])
+
+  // Active dataset: ALL tab uses the full list; type tabs use the filtered list
+  const activeList = typeFilter === "ALL" ? configs : configsByType
+  const activeLoading = typeFilter === "ALL" ? loading : typeLoading
+  const activeError = typeFilter === "ALL" ? error : typeError
+  const activeClearError = typeFilter === "ALL" ? clearError : clearTypeError
+
+  // Client-side search on top of whichever list is active
+  const filtered = useMemo(() => {
+    if (!search.trim()) return activeList
+    const q = search.toLowerCase()
+    return activeList.filter(
+      (c) =>
+        c.name.toLowerCase().includes(q) ||
+        c.description?.toLowerCase().includes(q) ||
+        c.creator.name.toLowerCase().includes(q),
+    )
+  }, [activeList, search])
 
   const { page, totalPages, paged, setPage, resetPage } = usePagination(filtered)
 
-  const stats = useMemo(() => ({
-    total: data.length,
-    active: data.filter((c) => c.status === "ACTIVE").length,
-    task: data.filter((c) => c.type === "TASK").length,
-    stakeholder: data.filter((c) => c.type === "STAKEHOLDER").length,
-  }), [data])
+  // Stats always reflect the full unfiltered list
+  const stats = useMemo(
+    () => ({
+      total: configs.length,
+      active: configs.filter((c) => c.is_active).length,
+      task: configs.filter((c) => c.type === "task_rating").length,
+      stakeholder: configs.filter((c) => c.type === "stakeholder_rating").length,
+    }),
+    [configs],
+  )
 
-  function handleView(config: Configuration) {
+  // Opens the detail sheet; GET /rating-configs/{id} fires inside the hook
+  function handleView(config: ApiRatingConfig) {
     setDetailConfigId(config.id)
     setDetailOpen(true)
   }
 
-  function handleEdit(config: Configuration) {
+  function handleEdit(config: ApiRatingConfig) {
     navigate(`/ratings/configurations/${config.id}/edit`)
   }
 
-  function handleDelete(config: Configuration) {
+  function handleDelete(config: ApiRatingConfig) {
     setDeleteConfig(config)
     setDeleteDialogOpen(true)
   }
 
-  function handleConfirmDelete() {
-    if (deleteConfig) {
-      setData((prev) => prev.filter((c) => c.id !== deleteConfig.id))
-      toast.success(`"${deleteConfig.name}" deleted successfully`)
+  async function handleConfirmDelete() {
+    if (!deleteConfig) return
+    // Calls DELETE /rating-configs/{id}; store removes the item from the list on success
+    const ok = await apiDelete(deleteConfig.id)
+    if (ok) {
+      setDeleteDialogOpen(false)
+      setDeleteConfig(null)
     }
-    setDeleteDialogOpen(false)
-    setDeleteConfig(null)
   }
 
   return (
@@ -102,7 +134,7 @@ export default function RatingsConfigurationsPage() {
             </p>
           </div>
         </div>
-        {/* Inline stats (compact) */}
+        {/* Inline stats — always based on the full list, not the active tab */}
         <div className="mt-2">
           <InlineStats
             items={[
@@ -113,6 +145,28 @@ export default function RatingsConfigurationsPage() {
             ]}
           />
         </div>
+
+        {/* Error banner — shown when the active list fetch fails */}
+        {activeError && (
+          <div className="flex items-center justify-between gap-3 rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="size-4 shrink-0" />
+              <span>{activeError}</span>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-auto py-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+              onClick={() => {
+                activeClearError()
+                if (typeFilter === "ALL") refetch()
+                else fetchByType(typeFilter as ApiRatingConfigType)
+              }}
+            >
+              Retry
+            </Button>
+          </div>
+        )}
 
         {/* Controls */}
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -160,7 +214,23 @@ export default function RatingsConfigurationsPage() {
         {/* Content */}
         <Card>
           <CardContent className="p-0">
-            {paged.length === 0 ? (
+            {/* Loading skeleton while the API request is in flight */}
+            {activeLoading && (
+              <div className="flex flex-col divide-y">
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <div key={i} className="flex items-center gap-4 px-4 py-3">
+                    <Skeleton className="h-4 w-1/3" />
+                    <Skeleton className="h-5 w-20 rounded-full" />
+                    <Skeleton className="h-5 w-16 rounded-full" />
+                    <Skeleton className="h-4 w-12" />
+                    <Skeleton className="h-7 w-7 rounded-full" />
+                    <Skeleton className="h-4 w-24 ml-auto" />
+                  </div>
+                ))}
+              </div>
+            )}
+            {/* Empty state */}
+            {!activeLoading && !activeError && paged.length === 0 && (
               <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
                 <div className="rounded-full bg-muted p-4">
                   <Settings2 className="size-6 text-muted-foreground" />
@@ -184,7 +254,9 @@ export default function RatingsConfigurationsPage() {
                   </Button>
                 )}
               </div>
-            ) : (
+            )}
+            {/* Table — only shown when data is loaded */}
+            {!activeLoading && !activeError && paged.length > 0 && (
               <ConfigurationTableView
                 configurations={paged}
                 onView={handleView}
@@ -205,13 +277,16 @@ export default function RatingsConfigurationsPage() {
         )}
       </div>
 
+      {/* Delete dialog — passes deleting flag for button feedback */}
       <ConfirmDeleteConfigurationDialog
         configuration={deleteConfig}
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
         onConfirm={handleConfirmDelete}
+        deleting={deleting}
       />
 
+      {/* Detail sheet — configId is now a number (API numeric IDs) */}
       <ConfigurationDetailSheet
         configId={detailConfigId}
         open={detailOpen}

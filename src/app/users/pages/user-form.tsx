@@ -30,6 +30,8 @@ export type UserFormData = {
   name: string
   email: string
   password: string
+  avatar: File | null
+  removeAvatar: boolean
 }
 
 export function UserForm({
@@ -46,11 +48,11 @@ export function UserForm({
   // Password is required on create, optional on edit
   const [password, setPassword] = useState("")
   const [avatarPreview, setAvatarPreview] = useState<string | null>(initialData?.avatarUrl ?? null)
+  const [removeAvatar, setRemoveAvatar] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const prevObjectUrl = useRef<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
-  // avatarFile state kept for future avatar upload functionality
-  const [_avatarFile, setAvatarFile] = useState<File | null>(null)
+  const [avatarFile, setAvatarFile] = useState<File | null>(null)
 
   // ── Roles & Permissions ─────────────────────────────────────────────────────
   const {
@@ -82,7 +84,9 @@ export function UserForm({
   // Reset preview when switching between create ↔ edit
   useEffect(() => {
     setAvatarPreview(initialData?.avatarUrl ?? null)
+    setRemoveAvatar(false)
     setAvatarFile(null)
+    if (fileInputRef.current) fileInputRef.current.value = ""
   }, [initialData])
 
   // Cleanup object URLs on unmount
@@ -111,7 +115,13 @@ export function UserForm({
 
     // Two-phase submit: 1) save personal info, 2) sync roles/permissions
     void (async () => {
-      const userId = await onSubmit({ name, email, password })
+      const userId = await onSubmit({
+        name,
+        email,
+        password,
+        avatar: avatarFile,
+        removeAvatar,
+      })
       if (!userId) return
 
       if (rolesPermsDirty) {
@@ -128,10 +138,11 @@ export function UserForm({
     const file = e.target.files?.[0] ?? null
     setAvatarFile(file)
     if (file) {
+      setRemoveAvatar(false)
       const url = URL.createObjectURL(file)
-      setAvatarPreview(url)
       if (prevObjectUrl.current) URL.revokeObjectURL(prevObjectUrl.current)
       prevObjectUrl.current = url
+      setAvatarPreview(url)
     } else {
       setAvatarPreview(initialData?.avatarUrl ?? null)
     }
@@ -143,7 +154,9 @@ export function UserForm({
       prevObjectUrl.current = null
     }
     setAvatarFile(null)
-    setAvatarPreview(initialData?.avatarUrl ?? null)
+    setRemoveAvatar(Boolean(initialData?.avatarUrl))
+    setAvatarPreview(null)
+    if (fileInputRef.current) fileInputRef.current.value = ""
   }
 
   return (

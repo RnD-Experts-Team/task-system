@@ -106,16 +106,57 @@ const priorityVariant: Record<string, "default" | "secondary" | "destructive" | 
 
 function TaskDetailSkeleton() {
   return (
-    <div className="space-y-6">
-      <Skeleton className="h-10 w-2/3" />
-      <div className="grid gap-4 md:grid-cols-4">
-        <Skeleton className="h-28" />
-        <Skeleton className="h-28" />
-        <Skeleton className="h-28" />
-        <Skeleton className="h-28" />
-      </div>
-      <Skeleton className="h-32 w-full" />
-      <Skeleton className="h-48 w-full" />
+    <div className="space-y-6 animate-pulse">
+      {/* Header Area */}
+      <Card className="border-border/70">
+        <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="space-y-3 w-full">
+            <div className="flex items-center gap-2">
+              <Skeleton className="h-6 w-24 rounded-full" />
+              <Skeleton className="h-6 w-24 rounded-full" />
+              <Skeleton className="h-4 w-12" />
+            </div>
+            <Skeleton className="h-8 w-2/3 max-w-lg" />
+            <Skeleton className="h-4 w-1/3" />
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <Skeleton className="h-24 rounded-lg w-full" />
+            <Skeleton className="h-24 rounded-lg w-full" />
+            <Skeleton className="h-24 rounded-lg w-full" />
+            <Skeleton className="h-24 rounded-lg w-full" />
+          </div>
+          <Separator />
+          <div>
+            <Skeleton className="h-4 w-24 mb-3" />
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-[90%]" />
+              <Skeleton className="h-4 w-[80%]" />
+              <Skeleton className="h-4 w-[40%]" />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Assignees Card */}
+      <Card>
+        <CardHeader>
+          <Skeleton className="h-5 w-32" />
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap gap-3">
+            <Skeleton className="h-14 w-[180px] rounded-xl" />
+            <Skeleton className="h-14 w-[180px] rounded-xl" />
+            <Skeleton className="h-14 w-[180px] rounded-xl" />
+          </div>
+        </CardContent>
+      </Card>
+      
+      {/* Sections placeholders */}
+      <Skeleton className="h-32 w-full rounded-xl" />
+      <Skeleton className="h-48 w-full rounded-xl" />
     </div>
   )
 }

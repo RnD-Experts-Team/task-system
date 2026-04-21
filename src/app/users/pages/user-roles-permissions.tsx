@@ -13,6 +13,7 @@ import {
   KeyRound,
 } from "lucide-react"
 import { useRolesPermissions } from "@/hooks/useRolesPermissions"
+import { usePermissions } from "@/hooks/usePermissions"
 import { RolesSelector } from "@/components/roles-selector"
 import { PermissionsSelector } from "@/components/permissions-selector"
 import type { Permission } from "@/types"
@@ -21,10 +22,15 @@ import type { Permission } from "@/types"
 type UserRolesPermissionsProps = {
   /** The user id to fetch/sync roles & permissions for */
   userId: string
+  /**
+   * Whether the current viewer holds "edit users" permission.
+   * When false the Edit button is hidden and the panel is fully read-only.
+   */
+  canEdit?: boolean
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
-export function UserRolesPermissions({ userId }: UserRolesPermissionsProps) {
+export function UserRolesPermissions({ userId, canEdit = true }: UserRolesPermissionsProps) {
   const {
     availableRoles,
     availablePermissions,
@@ -45,6 +51,12 @@ export function UserRolesPermissions({ userId }: UserRolesPermissionsProps) {
     refetchUserData,
     clearError,
   } = useRolesPermissions({ userId, fetchAvailableOnMount: false })
+
+  // Check whether the viewer can see the permission sections.
+  // "view permissions" is required by the backend for GET /permissions.
+  // We derive it from the auth store so the UI matches the API guard.
+  const { hasPermission } = usePermissions()
+  const canViewPermissions = hasPermission("view permissions")
 
   // ── Edit mode toggle ────────────────────────────────────────────────────────
   const [editing, setEditing] = useState(false)
@@ -126,6 +138,7 @@ export function UserRolesPermissions({ userId }: UserRolesPermissionsProps) {
               <X className="size-4" />
               <span className="hidden sm:inline">Cancel</span>
             </Button>
+            {/* Save — guarded by "edit users" permission (canEdit prop) */}
             <Button size="sm" onClick={handleSave} disabled={syncing || !isDirty}>
               {syncing ? (
                 <Loader2 className="size-4 animate-spin" />
@@ -138,10 +151,13 @@ export function UserRolesPermissions({ userId }: UserRolesPermissionsProps) {
             </Button>
           </div>
         ) : (
-          <Button variant="ghost" size="sm" onClick={enterEditMode}>
-            <Pencil className="size-4" />
-            <span className="hidden sm:inline">Edit</span>
-          </Button>
+          // Edit button — only shown when the viewer holds "edit users" permission
+          canEdit && (
+            <Button variant="ghost" size="sm" onClick={enterEditMode}>
+              <Pencil className="size-4" />
+              <span className="hidden sm:inline">Edit</span>
+            </Button>
+          )
         )}
       </div>
 
@@ -198,52 +214,59 @@ export function UserRolesPermissions({ userId }: UserRolesPermissionsProps) {
       <Separator />
 
       {/* ─── DIRECT PERMISSIONS SECTION ────────────────────────────────── */}
-      <section className="space-y-3">
-        <div className="flex items-center gap-2">
-          <KeyRound className="size-4 text-primary" />
-          <h4 className="text-sm font-medium">Direct Permissions</h4>
-          {!editing && (
-            <Badge variant="secondary" className="ml-auto text-xs">
-              {direct_permissions.length}
-            </Badge>
-          )}
-        </div>
-
-        {editing ? (
-          availableLoading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <Skeleton key={i} className="h-12 rounded-lg" />
-              ))}
-            </div>
-          ) : (
-            <PermissionsSelector
-              availablePermissions={availablePermissions}
-              selectedPermissions={currentPermissions}
-              onTogglePermission={togglePermission}
-              inheritedPermissions={inheritedPermissions}
-              disabled={syncing}
-            />
-          )
-        ) : (
-          <div className="flex flex-wrap gap-2">
-            {direct_permissions.length > 0 ? (
-              direct_permissions.map((perm: Permission) => (
-                <Badge key={perm.id} variant="outline" className="text-xs">
-                  {perm.name}
-                </Badge>
-              ))
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                No direct permissions assigned.
-              </p>
+      {/* Only visible to users who hold "view permissions" — the backend
+          requires this permission for GET /permissions. Hide the section
+          entirely instead of showing a confusing empty or errored state. */}
+      {canViewPermissions && (
+        <section className="space-y-3">
+          <div className="flex items-center gap-2">
+            <KeyRound className="size-4 text-primary" />
+            <h4 className="text-sm font-medium">Direct Permissions</h4>
+            {!editing && (
+              <Badge variant="secondary" className="ml-auto text-xs">
+                {direct_permissions.length}
+              </Badge>
             )}
           </div>
-        )}
-      </section>
+
+          {editing ? (
+            availableLoading ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <Skeleton key={i} className="h-12 rounded-lg" />
+                ))}
+              </div>
+            ) : (
+              <PermissionsSelector
+                availablePermissions={availablePermissions}
+                selectedPermissions={currentPermissions}
+                onTogglePermission={togglePermission}
+                inheritedPermissions={inheritedPermissions}
+                disabled={syncing}
+              />
+            )
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {direct_permissions.length > 0 ? (
+                direct_permissions.map((perm: Permission) => (
+                  <Badge key={perm.id} variant="outline" className="text-xs">
+                    {perm.name}
+                  </Badge>
+                ))
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  No direct permissions assigned.
+                </p>
+              )}
+            </div>
+          )}
+        </section>
+      )}
 
       {/* ─── ALL PERMISSIONS (read-only, shows inherited + direct) ──────── */}
-      {!editing && all_permissions.length > 0 && (
+      {/* Only visible to users who hold "view permissions". Shown only
+          outside edit mode and only when the user actually has permissions. */}
+      {canViewPermissions && !editing && all_permissions.length > 0 && (
         <>
           <Separator />
           <section className="space-y-3">

@@ -17,6 +17,12 @@ type UserTableViewProps = {
   onEdit: (user: User) => void
   onDelete: (user: User) => void
   onSelect: (user: User) => void
+  /** Show the Edit button — true when caller has "edit users" permission */
+  canEdit?: boolean
+  /** Show the Delete button — true when caller has "delete users" permission */
+  canDelete?: boolean
+  /** Allow clicking the user name to open the detail sheet — true when caller has "view users" */
+  canView?: boolean
 }
 
 function getInitials(name: string) {
@@ -39,7 +45,7 @@ const statusVariant: Record<string, "default" | "secondary" | "destructive" | "o
   suspended: "destructive",
 }
 
-export function UserTableView({ users, onEdit, onDelete, onSelect }: UserTableViewProps) {
+export function UserTableView({ users, onEdit, onDelete, onSelect, canEdit = true, canDelete = true, canView = true }: UserTableViewProps) {
   return (
     <Table>
       <TableHeader>
@@ -49,7 +55,10 @@ export function UserTableView({ users, onEdit, onDelete, onSelect }: UserTableVi
           <TableHead>Role</TableHead>
           <TableHead>Status</TableHead>
           <TableHead>Created</TableHead>
-          <TableHead className="text-right">Actions</TableHead>
+          {/* Only render the Actions column when at least one action is permitted */}
+          {(canEdit || canDelete) && (
+            <TableHead className="text-right">Actions</TableHead>
+          )}
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -75,13 +84,22 @@ export function UserTableView({ users, onEdit, onDelete, onSelect }: UserTableVi
                     </span>
                   ) : null}
                 </Avatar>
-                <button
-                  type="button"
-                  className="font-medium text-foreground text-base sm:text-lg hover:text-primary hover:underline underline-offset-2 transition-colors text-left"
-                  onClick={() => onSelect(user)}
-                >
-                  {user.name}
-                </button>
+
+                {/* User name — clicking opens the detail sheet.
+                    Rendered as a plain span when the caller lacks "view users". */}
+                {canView ? (
+                  <button
+                    type="button"
+                    className="font-medium text-foreground text-base sm:text-lg hover:text-primary hover:underline underline-offset-2 transition-colors text-left"
+                    onClick={() => onSelect(user)}
+                  >
+                    {user.name}
+                  </button>
+                ) : (
+                  <span className="font-medium text-foreground text-base sm:text-lg">
+                    {user.name}
+                  </span>
+                )}
               </div>
             </TableCell>
             <TableCell className="text-muted-foreground py-3 text-sm">{user.email}</TableCell>
@@ -94,16 +112,26 @@ export function UserTableView({ users, onEdit, onDelete, onSelect }: UserTableVi
               </Badge>
             </TableCell>
             <TableCell className="text-muted-foreground py-3">{user.createdAt}</TableCell>
-            <TableCell className="text-right py-3">
-              <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                <Button variant="ghost" size="icon-lg" onClick={() => onEdit(user)}>
-                  <Pencil />
-                </Button>
-                <Button variant="destructive" size="icon-lg" onClick={() => onDelete(user)}>
-                  <Trash2 />
-                </Button>
-              </div>
-            </TableCell>
+
+            {/* Action buttons — each is rendered only when the matching permission exists */}
+            {(canEdit || canDelete) && (
+              <TableCell className="text-right py-3">
+                <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  {/* Edit button — shown only with "edit users" permission */}
+                  {canEdit && (
+                    <Button variant="ghost" size="icon-lg" onClick={() => onEdit(user)}>
+                      <Pencil />
+                    </Button>
+                  )}
+                  {/* Delete button — shown only with "delete users" permission */}
+                  {canDelete && (
+                    <Button variant="destructive" size="icon-lg" onClick={() => onDelete(user)}>
+                      <Trash2 />
+                    </Button>
+                  )}
+                </div>
+              </TableCell>
+            )}
           </TableRow>
         ))}
       </TableBody>

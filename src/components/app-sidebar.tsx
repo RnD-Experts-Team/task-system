@@ -22,6 +22,7 @@ import {
   Clock,
   Shield,
   Command,
+  LayoutGrid,
 } from "lucide-react"
 import { usePermissions } from "@/hooks/usePermissions";
 const data = {
@@ -67,6 +68,11 @@ const data = {
       url: "/roles",
       icon: Shield,
     },
+    {
+      title: "Workspaces",
+      url: "/workspaces",
+      icon: LayoutGrid,
+    },
   ],
   navCollapsible: [
     {
@@ -93,10 +99,12 @@ const data = {
 }
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  const { hasRole } = usePermissions();
+  const { hasRole, hasPermission } = usePermissions();
   const isAdmin = hasRole("admin");
 
-  const navMainItems = data.navMain.filter((item) => item.url !== "/users" || isAdmin);
+  const navMainItems = data.navMain.filter(
+    (item) => item.url !== "/users" || isAdmin || hasPermission("view users")
+  );
 
   return (
     <Sidebar collapsible="offcanvas" {...props}>

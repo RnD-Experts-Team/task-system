@@ -15,13 +15,17 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
+  AlertCircle,
   BarChart3,
   Calculator,
+  Loader2,
   Trophy,
   TrendingUp,
   Users,
+  X,
 } from "lucide-react"
 import { useUsers } from "@/hooks/useUsers"
+import { useCalculateWeightedRatingsSOS } from "./hooks/useCalculateWeightedRatingsSOS"
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -29,8 +33,8 @@ type WeightedResult = {
   userId: string
   name: string
   avatarUrl: string | null
-  totalPoints: number
-  ratingPercent: number
+  // ratingPercent is null when the user had no rated tasks in the selected period
+  ratingPercent: number | null
 }
 
 function getInitials(name: string) {
@@ -47,9 +51,13 @@ export default function WeightedRatingsPage() {
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([])
   const [startDate, setStartDate] = useState("")
   const [endDate, setEndDate] = useState("")
+  // Holds the mapped & sorted results after a successful API call
   const [results, setResults] = useState<WeightedResult[]>([])
 
   const { users } = useUsers()
+
+  // Hook that wraps the POST /final-ratings/calculate-weighted-ratings-sos call
+  const { calculate, calculating, error, clearError } = useCalculateWeightedRatingsSOS()
 
   const activeUsers = useMemo(() => (users ?? []).filter((u) => u.status === "active"), [users])
 
@@ -69,36 +77,61 @@ export default function WeightedRatingsPage() {
     }
   }
 
-  function handleCalculate() {
+  async function handleCalculate() {
+    // Determine which users to calculate for (all active if none explicitly selected)
     const selected =
       selectedUserIds.length > 0
         ? activeUsers.filter((u) => selectedUserIds.includes(u.id))
         : activeUsers
 
-    const computed: WeightedResult[] = selected.map((u) => {
-      const totalPoints = Math.round(120 + Math.random() * 80)
-      const ratingPercent = Math.round((totalPoints / 200) * 100 * 100) / 100
+    // Build the API payload; user_ids must be integers per the backend contract
+    const payload = {
+      user_ids: selected.map((u) => parseInt(u.id, 10)),
+      start_date: startDate,
+      end_date: endDate,
+    }
+
+    // Clear previous results before firing the request
+    setResults([])
+
+    // Call the API; the hook handles loading & error state
+    const apiResults = await calculate(payload)
+    if (!apiResults) return  // error already captured in the hook's error state
+
+    // Merge API results (returned in the same order as user_ids) with local
+    // user objects to attach avatar URLs and stable IDs for rendering
+    const computed: WeightedResult[] = apiResults.map((r, i) => {
+      const user = selected[i]
       return {
-        userId: u.id,
-        name: u.name,
-        avatarUrl: u.avatarUrl,
-        totalPoints,
-        ratingPercent: Math.min(ratingPercent, 100),
+        userId: user?.id ?? String(i),
+        name: r.user_name,
+        avatarUrl: user?.avatarUrl ?? null,
+        ratingPercent: r.rating,  // already a percentage (0–100) or null
       }
     })
 
-    computed.sort((a, b) => b.ratingPercent - a.ratingPercent)
+    // Sort descending by rating; users with null ratings sink to the bottom
+    computed.sort((a, b) => {
+      if (a.ratingPercent === null && b.ratingPercent === null) return 0
+      if (a.ratingPercent === null) return 1
+      if (b.ratingPercent === null) return -1
+      return b.ratingPercent - a.ratingPercent
+    })
+
     setResults(computed)
   }
 
+  // Average over only the users that actually have a rating in the period
   const averageRating = useMemo(() => {
-    if (results.length === 0) return 0
-    const sum = results.reduce((acc, r) => acc + r.ratingPercent, 0)
-    return Math.round((sum / results.length) * 100) / 100
+    const rated = results.filter((r) => r.ratingPercent !== null)
+    if (rated.length === 0) return 0
+    const sum = rated.reduce((acc, r) => acc + (r.ratingPercent as number), 0)
+    return Math.round((sum / rated.length) * 100) / 100
   }, [results])
 
+  // First entry with a non-null rating (list is already sorted descending)
   const topPerformer = useMemo(
-    () => (results.length > 0 ? results[0] : null),
+    () => results.find((r) => r.ratingPercent !== null) ?? null,
     [results]
   )
 
@@ -202,13 +235,38 @@ export default function WeightedRatingsPage() {
                 className="h-10 text-sm"
               />
             </div>
-            <Button onClick={handleCalculate} className="shrink-0">
-              <Calculator className="size-3.5" />
-              Calculate Rating
+            <Button onClick={handleCalculate} disabled={calculating} className="shrink-0">
+              {calculating ? (
+                // Spinner shown while the API request is in-flight
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <Calculator className="size-3.5" />
+              )}
+              {calculating ? "Calculating…" : "Calculate Rating"}
             </Button>
           </div>
         </CardContent>
       </Card>
+
+      {/* Error alert — shown when the API call fails (cancellations are ignored) */}
+      {error && (
+        <div className="flex items-start gap-3 rounded-lg border border-destructive/40 bg-destructive/10 p-4">
+          <AlertCircle className="mt-0.5 size-4 shrink-0 text-destructive" />
+          <div className="flex-1">
+            <p className="text-sm font-medium text-destructive">Calculation failed</p>
+            <p className="mt-0.5 text-sm text-destructive/80">{error}</p>
+          </div>
+          {/* Dismiss button clears the error without discarding previous results */}
+          <button
+            type="button"
+            onClick={clearError}
+            className="text-destructive/60 hover:text-destructive"
+            aria-label="Dismiss error"
+          >
+            <X className="size-4" />
+          </button>
+        </div>
+      )}
 
       {/* Results */}
       {results.length > 0 && (
@@ -256,7 +314,9 @@ export default function WeightedRatingsPage() {
                             {topPerformer.name}
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            {topPerformer.ratingPercent}% avg rating
+                            {topPerformer.ratingPercent !== null
+                              ? `${topPerformer.ratingPercent}% avg rating`
+                              : "No data for period"}
                           </p>
                         </div>
                       </div>
@@ -290,7 +350,6 @@ export default function WeightedRatingsPage() {
                     <TableRow>
                       <TableHead className="w-12">#</TableHead>
                       <TableHead>User</TableHead>
-                      <TableHead className="text-right">Total Points</TableHead>
                       <TableHead className="text-right">Rating %</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -311,27 +370,32 @@ export default function WeightedRatingsPage() {
                             <span className="text-sm font-medium">
                               {r.name}
                             </span>
-                            {i === 0 && (
+                            {/* Trophy only for the top-ranked user with a real rating */}
+                            {i === 0 && r.ratingPercent !== null && (
                               <Trophy className="size-3.5 text-amber-500" />
                             )}
                           </div>
                         </TableCell>
-                        <TableCell className="text-right font-mono text-sm">
-                          {r.totalPoints}
-                        </TableCell>
                         <TableCell className="text-right">
-                          <Badge
-                            variant="outline"
-                            className={
-                              r.ratingPercent >= 80
-                                ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30"
-                                : r.ratingPercent >= 60
-                                  ? "bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30"
-                                  : "bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/30"
-                            }
-                          >
-                            {r.ratingPercent}%
-                          </Badge>
+                          {r.ratingPercent === null ? (
+                            // User had no rated tasks in the selected period
+                            <Badge variant="outline" className="text-muted-foreground">
+                              No data
+                            </Badge>
+                          ) : (
+                            <Badge
+                              variant="outline"
+                              className={
+                                r.ratingPercent >= 80
+                                  ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30"
+                                  : r.ratingPercent >= 60
+                                    ? "bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30"
+                                    : "bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/30"
+                              }
+                            >
+                              {r.ratingPercent}%
+                            </Badge>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))}

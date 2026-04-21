@@ -23,6 +23,63 @@ class ApiClient {
     this.setupInterceptors();
   }
 
+  private getFilenameFromDisposition(disposition?: string): string | null {
+    if (!disposition) return null;
+
+    const utf8Match = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+    if (utf8Match?.[1]) {
+      return decodeURIComponent(utf8Match[1].replace(/[\"]/g, "").trim());
+    }
+
+    const asciiMatch = disposition.match(/filename=(?:"([^"]+)"|([^;]+))/i);
+    const raw = asciiMatch?.[1] ?? asciiMatch?.[2];
+    return raw ? raw.replace(/[\"]/g, "").trim() : null;
+  }
+
+  private inferExtensionFromContentType(contentType?: string): string | null {
+    if (!contentType) return null;
+
+    const mime = contentType.split(";")[0].trim().toLowerCase();
+    if (mime === "application/zip") return "zip";
+    if (mime === "application/pdf") return "pdf";
+    if (mime === "application/json") return "json";
+    if (mime === "text/plain") return "txt";
+    return null;
+  }
+
+  private async inferExtensionFromBlob(blob: Blob): Promise<string | null> {
+    const header = await blob.slice(0, 4).arrayBuffer();
+    const bytes = Array.from(new Uint8Array(header));
+
+    // ZIP magic: PK\x03\x04 (or other PK variants)
+    if (bytes[0] === 0x50 && bytes[1] === 0x4b) return "zip";
+    // PDF magic: %PDF
+    if (bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44 && bytes[3] === 0x46) return "pdf";
+
+    return null;
+  }
+
+  private async resolveDownloadFilename(url: string, response: AxiosResponse<Blob>): Promise<string> {
+    const disposition = response.headers["content-disposition"] as string | undefined;
+    const fromDisposition = this.getFilenameFromDisposition(disposition);
+    if (fromDisposition) return fromDisposition;
+
+    const blob = new Blob([response.data], {
+      type: (response.headers["content-type"] as string | undefined) ?? response.data.type,
+    });
+
+    const extFromContentType = this.inferExtensionFromContentType(response.headers["content-type"] as string | undefined);
+    const extFromMagic = await this.inferExtensionFromBlob(blob);
+    const ext = extFromMagic ?? extFromContentType;
+
+    const urlTail = url.split("/").pop() ?? "download";
+    const baseName = urlTail.replace(/\?.*$/, "") || "download";
+    const hasExtension = /\.[a-z0-9]+$/i.test(baseName);
+
+    if (hasExtension) return baseName;
+    return ext ? `${baseName}.${ext}` : `${baseName}.bin`;
+  }
+
   // ─── Interceptors ──────────────────────────────────────────────
 
   // Allow callers to pass `toast` messages through config: { toast: { success, error } }
@@ -121,17 +178,33 @@ class ApiClient {
       responseType: "blob",
     });
 
-    const disposition = response.headers["content-disposition"] as string | undefined;
-    let filename = "download";
+    const filename = await this.resolveDownloadFilename(url, response);
+    const blob = new Blob([response.data], {
+      type: (response.headers["content-type"] as string | undefined) ?? response.data.type,
+    });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(link.href);
+  }
 
-    if (disposition) {
-      const match = disposition.match(/filename\*?=(?:UTF-8''|"?)([^";]+)/i);
-      if (match?.[1]) {
-        filename = decodeURIComponent(match[1].replace(/["]/g, ""));
-      }
-    }
+  /**
+   * POST to a URL and trigger a file download from the response blob.
+   * Used for endpoints that generate and return binary files (e.g. ZIP exports).
+   */
+  async downloadFilePost(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<void> {
+    const response: AxiosResponse<Blob> = await this.client.post(url, data, {
+      ...config,
+      responseType: "blob",
+    });
 
-    const blob = new Blob([response.data]);
+    const filename = await this.resolveDownloadFilename(url, response);
+    const blob = new Blob([response.data], {
+      type: (response.headers["content-type"] as string | undefined) ?? response.data.type,
+    });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
     link.download = filename;
