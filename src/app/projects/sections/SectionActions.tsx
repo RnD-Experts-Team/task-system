@@ -28,6 +28,8 @@ type SectionActionsProps = {
   onEdit: (section: Section) => void
   onDelete: (section: Section) => void
   submitting?: boolean
+  canEdit?: boolean
+  canDelete?: boolean
 }
 
 // Dropdown menu with edit/delete actions + inline delete confirmation
@@ -36,8 +38,13 @@ export function SectionActions({
   onEdit,
   onDelete,
   submitting = false,
+  canEdit = false,
+  canDelete = false,
 }: SectionActionsProps) {
   const [deleteOpen, setDeleteOpen] = useState(false)
+
+  // If neither action is permitted, render nothing
+  if (!canEdit && !canDelete) return null
 
   return (
     <>
@@ -48,17 +55,21 @@ export function SectionActions({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={() => onEdit(section)}>
-            <Pencil className="size-4" />
-            Edit Section
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            className="text-destructive focus:text-destructive"
-            onClick={() => setDeleteOpen(true)}
-          >
-            <Trash2 className="size-4" />
-            Delete Section
-          </DropdownMenuItem>
+          {canEdit && (
+            <DropdownMenuItem onClick={() => onEdit(section)}>
+              <Pencil className="size-4" />
+              Edit Section
+            </DropdownMenuItem>
+          )}
+          {canDelete && (
+            <DropdownMenuItem
+              className="text-destructive focus:text-destructive"
+              onClick={() => setDeleteOpen(true)}
+            >
+              <Trash2 className="size-4" />
+              Delete Section
+            </DropdownMenuItem>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
 

@@ -25,8 +25,8 @@ import type { ApiRatingConfig } from "@/app/ratings/configurations/types"
 type ConfigurationTableViewProps = {
   configurations: ApiRatingConfig[]
   onView: (config: ApiRatingConfig) => void
-  onEdit: (config: ApiRatingConfig) => void
-  onDelete: (config: ApiRatingConfig) => void
+  onEdit?: (config: ApiRatingConfig) => void
+  onDelete?: (config: ApiRatingConfig) => void
 }
 
 function getInitials(name: string) {
@@ -61,7 +61,7 @@ export function ConfigurationTableView({
           <TableHead>Fields</TableHead>
           <TableHead>Creator</TableHead>
           <TableHead>Created</TableHead>
-          <TableHead className="text-right">Actions</TableHead>
+          {(onEdit || onDelete) && <TableHead className="text-right">Actions</TableHead>}
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -132,38 +132,46 @@ export function ConfigurationTableView({
               {/* created_at (ISO string) instead of legacy createdAt */}
               <span className="text-sm text-muted-foreground">{formatDate(config.created_at)}</span>
             </TableCell>
-            <TableCell className="py-3 text-right">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="size-8 opacity-0 group-hover:opacity-100 transition-opacity"
-                    aria-label="Actions"
-                  >
-                    <MoreHorizontal className="size-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-44">
-                  <DropdownMenuItem onClick={() => onView(config)}>
-                    <Eye className="size-3.5" />
-                    View Details
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => onEdit(config)}>
-                    <Pencil className="size-3.5" />
-                    Edit
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    variant="destructive"
-                    onClick={() => onDelete(config)}
-                  >
-                    <Trash2 className="size-3.5" />
-                    Delete
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </TableCell>
+            {(onEdit || onDelete) && (
+              <TableCell className="py-3 text-right">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                      aria-label="Actions"
+                    >
+                      <MoreHorizontal className="size-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-44">
+                    <DropdownMenuItem onClick={() => onView(config)}>
+                      <Eye className="size-3.5" />
+                      View Details
+                    </DropdownMenuItem>
+                    {onEdit && (
+                      <DropdownMenuItem onClick={() => onEdit(config)}>
+                        <Pencil className="size-3.5" />
+                        Edit
+                      </DropdownMenuItem>
+                    )}
+                    {onDelete && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          variant="destructive"
+                          onClick={() => onDelete(config)}
+                        >
+                          <Trash2 className="size-3.5" />
+                          Delete
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </TableCell>
+            )}
           </TableRow>
         ))}
       </TableBody>

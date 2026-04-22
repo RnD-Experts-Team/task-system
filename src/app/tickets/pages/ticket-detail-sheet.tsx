@@ -53,6 +53,8 @@ import {
   getRequesterName,
 } from "@/app/tickets/types"
 import type { ApiTicket, ApiTicketStatus } from "@/app/tickets/types"
+import { usePermissions } from "@/hooks/usePermissions"
+import { useAuthStore } from "@/app/(auth)/stores/authStore"
 
 // Status options reused for the inline change-status dropdown
 const statusOptions: { value: ApiTicketStatus; label: string }[] = [
@@ -108,9 +110,18 @@ export function TicketDetailSheet({
   actionSubmitting = false,
   actionError,
 }: TicketDetailSheetProps) {
+  const { hasPermission, hasRole } = usePermissions()
+  const currentUser = useAuthStore((s) => s.user)
+  const isAdmin   = hasRole("admin")
+  const canEdit   = hasPermission("edit tickets")
+  const canDelete = hasPermission("delete tickets")
+
   // Fetch the full ticket detail whenever ticketId changes while the sheet is open.
   // The hook clears selectedTicket on unmount / id change to prevent stale flashes.
   const { ticket, loading, error } = useTicket(open ? ticketId : null)
+  const isAssignee = ticket?.assignee?.id === currentUser?.id
+  const isRequester = ticket?.requester?.id === currentUser?.id
+  const canAssignAction = isAdmin || isRequester
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -319,8 +330,8 @@ export function TicketDetailSheet({
 
               {/* ── Actions ────────────────────────────────────────────────── */}
               <div className="space-y-4">
-                {/* Change Status — inline Select dropdown */}
-                {onStatusChange && (
+                {/* Change Status — only the current assignee can change status */}
+                {onStatusChange && ticket && ticket.assignee?.id === currentUser?.id && (
                   <div className="flex items-center gap-3">
                     <span className="text-sm text-muted-foreground w-24 shrink-0">Change Status</span>
                     <Select
@@ -344,7 +355,7 @@ export function TicketDetailSheet({
 
                 {/* Quick action buttons row */}
                 <div className="flex flex-wrap gap-3">
-                  {onEdit && (
+                  {canEdit && onEdit && (
                     <Button
                       variant="outline"
                       size="sm"
@@ -358,9 +369,9 @@ export function TicketDetailSheet({
                     </Button>
                   )}
 
-                  {/* Show Claim or Unclaim depending on whether an assignee exists */}
+                  {/* Unclaim — only the current assignee can unclaim */}
                   {ticket.assignee
-                    ? onUnclaim && (
+                    ? onUnclaim && ticket.assignee.id === currentUser?.id && (
                         <Button
                           variant="outline"
                           size="sm"
@@ -383,8 +394,8 @@ export function TicketDetailSheet({
                         </Button>
                       )}
 
-                  {/* Assign to a specific user */}
-                  {onAssign && (
+                  {/* Assign to a specific user — only the admin or requester can assign */}
+                  {onAssign && canAssignAction && (
                     <Button
                       variant="outline"
                       size="sm"
@@ -397,7 +408,7 @@ export function TicketDetailSheet({
                   )}
 
                   {/* Mark complete — only shown when not already completed */}
-                  {onComplete && ticket.status !== "resolved" && (
+                  {onComplete && ticket.status !== "resolved" && isAssignee && (
                     <Button
                       variant="outline"
                       size="sm"
@@ -410,7 +421,7 @@ export function TicketDetailSheet({
                   )}
 
                   {/* Delete button */}
-                  {onDelete && (
+                  {canDelete && onDelete && (
                     <Button
                       variant="destructive"
                       size="sm"

@@ -53,6 +53,8 @@ import { HelpRequestFormSheet } from "@/app/help-requests/pages/help-request-for
 import { AssignHelpRequestDialog } from "@/app/help-requests/pages/assign-help-request-dialog"
 import { CompleteHelpRequestDialog } from "@/app/help-requests/pages/complete-help-request-dialog"
 
+import { usePermissions } from "@/hooks/usePermissions"
+
 // API-aligned type
 import type { HelpRequest, HelpRequestRatingValue } from "@/app/help-requests/types"
 
@@ -102,6 +104,9 @@ export default function HelpRequestsPage() {
   const [completeDialogOpen, setCompleteDialogOpen] = useState(false)
   const [completeRequest, setCompleteRequest] = useState<HelpRequest | null>(null)
   const [completing, setCompleting] = useState(false)
+
+  // ── Permission checks ─────────────────────────────────────────────────────
+  const { hasPermission } = usePermissions()
 
   // ── Mutation actions from the store ──────────────────────────────────────────
   const { claimHelpRequest, unclaimHelpRequest, deleteHelpRequest, assignHelpRequest, completeHelpRequest } = useHelpRequestMutations()
@@ -258,11 +263,13 @@ export default function HelpRequestsPage() {
               Manage and track help requests across all teams and projects.
             </p>
           </div>
-          {/* Create button — opens the form sheet in create mode */}
-          <Button onClick={handleCreate} className="w-full sm:w-auto">
-            <Plus className="size-4" />
-            New Request
-          </Button>
+          {/* Create button — only shown when user has the create permission */}
+          {hasPermission("create help requests") && (
+            <Button onClick={handleCreate} className="w-full sm:w-auto">
+              <Plus className="size-4" />
+              New Request
+            </Button>
+          )}
         </div>
 
         {/* ── Main Content ─────────────────────────────────────────── */}

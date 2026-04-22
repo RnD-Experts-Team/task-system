@@ -17,6 +17,7 @@ import {
   statusClassName,
   statusLabel,
 } from "../utils/project-format"
+import { usePermissions } from "@/hooks/usePermissions"
 
 type ProjectDetailSheetProps = {
   project: Project | null
@@ -36,6 +37,9 @@ export function ProjectDetailSheet({
   onViewPage,
   onViewDetails,
 }: ProjectDetailSheetProps) {
+  const { hasPermission } = usePermissions()
+  const canEdit = hasPermission("edit projects")
+
   if (!project) return null
 
   return (
@@ -135,7 +139,7 @@ export function ProjectDetailSheet({
               </Button>
             )}
 
-            {onEdit && (
+            {onEdit && canEdit && (
               <Button
                 variant="secondary"
                 size="lg"

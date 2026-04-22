@@ -7,7 +7,7 @@
 // All CRUD actions are delegated back to SectionCard via callbacks so the card
 // owns all mutation state (form sheet, delete dialog, edit-loading indicator).
 
-import { Loader2, Plus, Calendar, Eye, Pencil, Trash2, MoreHorizontal, Users } from "lucide-react"
+import { Loader2, Plus, Calendar, Eye, Pencil, Trash2, MoreHorizontal, Users, Star } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -33,6 +33,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import type { SectionTask, SectionTaskAssignedUser } from "./types"
+import { usePermissions } from "@/hooks/usePermissions"
 
 // ─── Formatting helpers ──────────────────────────────────────────────────────
 
@@ -149,6 +150,8 @@ type TaskListProps = {
   onDelete: (task: SectionTask) => void
   /** Navigate to /tasks/:id for the full detail view */
   onView: (taskId: number) => void
+  /** Navigate to /ratings/tasks/:id/rate */
+  onRate?: (taskId: number) => void
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -162,7 +165,14 @@ export function TaskList({
   onEdit,
   onDelete,
   onView,
+  onRate,
 }: TaskListProps) {
+  const { hasPermission } = usePermissions()
+  const canView = hasPermission("view tasks")
+  const canEdit = hasPermission("edit tasks")
+  const canDelete = hasPermission("delete tasks")
+  const canCreate = hasPermission("create tasks")
+  const canRate = hasPermission("create task ratings")
 
   // ── Loading skeleton — mirrors the table structure so layout doesn't jump ──
   if (loading) {
@@ -226,9 +236,9 @@ export function TaskList({
               {tasks.map((task) => (
                 <TableRow
                   key={task.id}
-                  // Clicking anywhere on the row opens the detail page
-                  className="cursor-pointer"
-                  onClick={() => onView(task.id)}
+                  // Clicking anywhere on the row opens the detail page (only if permitted)
+                  className={canView ? "cursor-pointer" : undefined}
+                  onClick={canView ? () => onView(task.id) : undefined}
                 >
                   {/* Task name — truncated with a title tooltip */}
                   <TableCell className="font-medium">
@@ -289,34 +299,48 @@ export function TaskList({
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         {/* View — navigates to the existing /tasks/:id detail page */}
-                        <DropdownMenuItem onClick={() => onView(task.id)}>
-                          <Eye className="size-4" />
-                          View Details
-                        </DropdownMenuItem>
+                        {canView && (
+                          <DropdownMenuItem onClick={() => onView(task.id)}>
+                            <Eye className="size-4" />
+                            View Details
+                          </DropdownMenuItem>
+                        )}
 
                         {/* Edit — fetches the full task then opens the form sheet */}
-                        <DropdownMenuItem
-                          onClick={() => onEdit(task.id)}
-                          disabled={editLoadingId !== null}
-                        >
-                          {editLoadingId === task.id ? (
-                            <Loader2 className="size-4 animate-spin" />
-                          ) : (
-                            <Pencil className="size-4" />
-                          )}
-                          Edit Task
-                        </DropdownMenuItem>
+                        {canEdit && (
+                          <DropdownMenuItem
+                            onClick={() => onEdit(task.id)}
+                            disabled={editLoadingId !== null}
+                          >
+                            {editLoadingId === task.id ? (
+                              <Loader2 className="size-4 animate-spin" />
+                            ) : (
+                              <Pencil className="size-4" />
+                            )}
+                            Edit Task
+                          </DropdownMenuItem>
+                        )}
 
-                        <DropdownMenuSeparator />
+                        {/* Rate — navigates to /ratings/tasks/:id/rate */}
+                        {canRate && onRate && (
+                          <DropdownMenuItem onClick={() => onRate(task.id)}>
+                            <Star className="size-4" />
+                            Rate Task
+                          </DropdownMenuItem>
+                        )}
+
+                        {(canDelete) && <DropdownMenuSeparator />}
 
                         {/* Delete — opens the confirmation dialog */}
-                        <DropdownMenuItem
-                          className="text-destructive focus:text-destructive"
-                          onClick={() => onDelete(task)}
-                        >
-                          <Trash2 className="size-4" />
-                          Delete Task
-                        </DropdownMenuItem>
+                        {canDelete && (
+                          <DropdownMenuItem
+                            className="text-destructive focus:text-destructive"
+                            onClick={() => onDelete(task)}
+                          >
+                            <Trash2 className="size-4" />
+                            Delete Task
+                          </DropdownMenuItem>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
@@ -327,16 +351,18 @@ export function TaskList({
         </div>
       )}
 
-      {/* Add Task button — always shown below the table/empty state */}
-      <Button
-        variant="ghost"
-        size="sm"
-        className="w-full justify-start gap-1.5 text-muted-foreground hover:text-foreground"
-        onClick={onAddTask}
-      >
-        <Plus className="size-3.5" />
-        Add Task
-      </Button>
+      {/* Add Task button — shown only when user has create tasks permission */}
+      {canCreate && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="w-full justify-start gap-1.5 text-muted-foreground hover:text-foreground"
+          onClick={onAddTask}
+        >
+          <Plus className="size-3.5" />
+          Add Task
+        </Button>
+      )}
     </div>
   )
 }

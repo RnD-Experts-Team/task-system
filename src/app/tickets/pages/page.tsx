@@ -37,6 +37,7 @@ import { Plus, Search, LayoutList, LayoutGrid, AlertCircle, Ticket } from "lucid
 import { Pagination } from "@/components/pagination"
 import { PaginationInfo } from "@/components/pagination-info"
 import InlineStats from "@/components/inline-stats"
+import { usePermissions } from "@/hooks/usePermissions"
 
 // API hooks — each connects to a different read endpoint
 import { useTickets } from "@/app/tickets/hooks/useTickets"
@@ -87,6 +88,11 @@ export default function TicketsPage() {
   const [pageView, setPageView]   = useState<PageView>("list")
   const [layout, setLayout]       = useState<LayoutMode>("table")
   const [activeTab, setActiveTab] = useState("all")
+
+  // ── Permission checks ────────────────────────────────────────────────────────
+  const { hasPermission, hasAnyPermission } = usePermissions()
+  const canEdit   = hasPermission("edit tickets")
+  const canCreate = hasAnyPermission(["view tickets", "create help requests"])
 
   // ── Search (client-side on currently-loaded page) ─────────────────────────
   const [search, setSearch] = useState("")
@@ -392,6 +398,16 @@ export default function TicketsPage() {
 
   // ── Form view ─────────────────────────────────────────────────────────────
   if (pageView === "form") {
+    // Block access to the create form for users without create permissions
+    if (formMode === "create" && !canCreate) {
+      setPageView("list")
+      return null
+    }
+    // Block access to the edit form for users without edit permissions
+    if (formMode === "edit" && !canEdit) {
+      setPageView("list")
+      return null
+    }
     return (
       <TicketForm
         mode={formMode}
@@ -426,14 +442,17 @@ export default function TicketsPage() {
               Track and manage support tickets, bugs, and requests.
             </p>
           </div>
-          <Button
-            className="transition-all hover:shadow-md hover:shadow-primary/25 w-full sm:w-auto"
-            size="lg"
-            onClick={handleCreate}
-          >
-            <Plus />
-            Add Ticket
-          </Button>
+          {/* Add Ticket button — only shown when user has create permission */}
+          {canCreate && (
+            <Button
+              className="transition-all hover:shadow-md hover:shadow-primary/25 w-full sm:w-auto"
+              size="lg"
+              onClick={handleCreate}
+            >
+              <Plus />
+              Add Ticket
+            </Button>
+          )}
         </div>
 
         {/* ── Inline stats ───────────────────────────────────────────────────── */}

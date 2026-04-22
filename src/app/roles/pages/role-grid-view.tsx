@@ -4,8 +4,8 @@ import { RoleCard } from "@/app/roles/pages/role-card"
 type RoleGridViewProps = {
   roles: Role[]
   onSelect: (role: Role) => void
-  onEdit: (role: Role) => void
-  onDelete: (role: Role) => void
+  onEdit?: (role: Role) => void
+  onDelete?: (role: Role) => void
 }
 
 export function RoleGridView({ roles, onSelect, onEdit, onDelete }: RoleGridViewProps) {

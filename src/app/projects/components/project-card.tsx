@@ -17,10 +17,12 @@ type ProjectCardProps = {
   onDelete: (project: Project) => void
   onSelect: (project: Project) => void
   onViewPage: (project: Project) => void
+  canEdit?: boolean
+  canDelete?: boolean
 }
 
 // Card component used in grid view
-export function ProjectCard({ project, onEdit, onDelete, onSelect, onViewPage }: ProjectCardProps) {
+export function ProjectCard({ project, onEdit, onDelete, onSelect, onViewPage, canEdit = false, canDelete = false }: ProjectCardProps) {
   return (
     <Card className="flex flex-col border-border/70 bg-linear-to-br from-background via-background to-muted/20">
       <CardContent className="flex flex-col gap-3 pt-4 px-4 flex-1">
@@ -78,13 +80,17 @@ export function ProjectCard({ project, onEdit, onDelete, onSelect, onViewPage }:
         <Button variant="outline" size="icon-lg" onClick={() => onViewPage(project)}>
           <Eye className="size-3.5" />
         </Button>
-        <Button variant="secondary" size="lg" className="flex-1 py-2" onClick={() => onEdit(project)}>
-          <Pencil className="size-3.5" />
-          Edit
-        </Button>
-        <Button variant="destructive" size="icon-lg" onClick={() => onDelete(project)}>
-          <Trash2 className="size-3.5" />
-        </Button>
+        {canEdit && (
+          <Button variant="secondary" size="lg" className="flex-1 py-2" onClick={() => onEdit(project)}>
+            <Pencil className="size-3.5" />
+            Edit
+          </Button>
+        )}
+        {canDelete && (
+          <Button variant="destructive" size="icon-lg" onClick={() => onDelete(project)}>
+            <Trash2 className="size-3.5" />
+          </Button>
+        )}
       </CardFooter>
     </Card>
   )

@@ -18,6 +18,7 @@ import { useRatingConfigs } from "@/app/ratings/configurations/hooks/useRatingCo
 import { useRatingConfigsByType } from "@/app/ratings/configurations/hooks/useRatingConfigsByType"
 import { useDeleteRatingConfig } from "@/app/ratings/configurations/hooks/useDeleteRatingConfig"
 import type { ApiRatingConfig, ApiRatingConfigType } from "@/app/ratings/configurations/types"
+import { usePermissions } from "@/hooks/usePermissions"
 
 // "ALL" stays client-side; the other two values call GET /rating-configs/type/{type}
 type TypeFilter = "ALL" | ApiRatingConfigType
@@ -30,6 +31,10 @@ const typeOptions: { value: TypeFilter; label: string }[] = [
 
 export default function RatingsConfigurationsPage() {
   const navigate = useNavigate()
+  const { hasPermission } = usePermissions()
+  const canCreate = hasPermission("create rating configs")
+  const canEdit = hasPermission("edit rating configs")
+  const canDelete = hasPermission("delete rating configs")
 
   // ── API hooks ───────────────────────────────────────────────────
   // Full list: called on mount, always available for the ALL tab and stats
@@ -200,14 +205,16 @@ export default function RatingsConfigurationsPage() {
               </TabsList>
             </Tabs>
 
-            <Button
-              className="transition-all hover:shadow-md hover:shadow-primary/25"
-              size="sm"
-              onClick={() => navigate("/ratings/configurations/new")}
-            >
-              <Plus />
-              New
-            </Button>
+            {canCreate && (
+              <Button
+                className="transition-all hover:shadow-md hover:shadow-primary/25"
+                size="sm"
+                onClick={() => navigate("/ratings/configurations/new")}
+              >
+                <Plus />
+                New
+              </Button>
+            )}
           </div>
         </div>
 
@@ -243,7 +250,7 @@ export default function RatingsConfigurationsPage() {
                       : "Create your first configuration to get started."}
                   </p>
                 </div>
-                {!search && typeFilter === "ALL" && (
+                {!search && typeFilter === "ALL" && canCreate && (
                   <Button
                     variant="outline"
                     size="sm"
@@ -260,8 +267,8 @@ export default function RatingsConfigurationsPage() {
               <ConfigurationTableView
                 configurations={paged}
                 onView={handleView}
-                onEdit={handleEdit}
-                onDelete={handleDelete}
+                onEdit={canEdit ? handleEdit : undefined}
+                onDelete={canDelete ? handleDelete : undefined}
               />
             )}
           </CardContent>

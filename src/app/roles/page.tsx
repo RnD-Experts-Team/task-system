@@ -14,12 +14,19 @@ import { RoleDetailSheet } from "@/app/roles/pages/role-detail-sheet"
 import { ConfirmDeleteRoleDialog } from "@/app/roles/pages/confirm-delete-role-dialog"
 import { useRoles, useCreateRole, useUpdateRole, useDeleteRole } from "@/app/roles/hooks/useRoles"
 import { useRolesStore } from "@/app/roles/stores/rolesStore"
+import { usePermissions } from "@/hooks/usePermissions"
 import type { Role } from "@/types"
 import type { RoleFormData } from "@/app/roles/types"
 
 type ViewMode = "table" | "grid"
 
 export default function RolesPage() {
+  // ── Permissions ──
+  const { hasPermission } = usePermissions()
+  const canCreate = hasPermission("create roles")
+  const canEdit   = hasPermission("edit roles")
+  const canDelete = hasPermission("delete roles")
+
   // ── Store data ──
   const [page, setPage] = useState(1)
   const {
@@ -128,14 +135,16 @@ export default function RolesPage() {
               Define access levels and manage what each role is permitted to do.
             </p>
           </div>
-          <Button
-            className="transition-all hover:shadow-md hover:shadow-primary/25"
-            size="lg"
-            onClick={handleCreate}
-          >
-            <Plus />
-            Add Role
-          </Button>
+          {canCreate && (
+            <Button
+              className="transition-all hover:shadow-md hover:shadow-primary/25"
+              size="lg"
+              onClick={handleCreate}
+            >
+              <Plus />
+              Add Role
+            </Button>
+          )}
         </div>
 
         {/* Error alert */}
@@ -190,16 +199,16 @@ export default function RolesPage() {
           view === "table" ? (
             <RolesTableView
               roles={filtered}
-              onEdit={handleEdit}
-              onDelete={handleDelete}
+              onEdit={canEdit ? handleEdit : undefined}
+              onDelete={canDelete ? handleDelete : undefined}
               onSelect={handleSelect}
             />
           ) : (
             <RoleGridView
               roles={filtered}
               onSelect={handleSelect}
-              onEdit={handleEdit}
-              onDelete={handleDelete}
+              onEdit={canEdit ? handleEdit : undefined}
+              onDelete={canDelete ? handleDelete : undefined}
             />
           )
         )}
@@ -235,7 +244,7 @@ export default function RolesPage() {
         role={selectedRole}
         open={detailOpen}
         onOpenChange={setDetailOpen}
-        onEdit={handleEdit}
+        onEdit={canEdit ? handleEdit : undefined}
         loading={selectedLoading}
       />
 

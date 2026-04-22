@@ -22,6 +22,8 @@ import {
 import { MoreHorizontal, Pencil, Trash2, Eye, HandHelping, X, UserCheck, CheckCircle2 } from "lucide-react"
 import { DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
 import { Link } from "react-router"
+import { usePermissions } from "@/hooks/usePermissions"
+import { useAuthStore } from "@/app/(auth)/stores/authStore"
 // API types replacing the old mock-data types
 import type { HelpRequest } from "@/app/help-requests/types"
 import { getDisplayStatus, helpRequestRatingLabel } from "@/app/help-requests/types"
@@ -77,6 +79,13 @@ export function HelpRequestTableView({
   onAssign,
   onComplete,
 }: HelpRequestTableViewProps) {
+  const { hasPermission } = usePermissions()
+  const currentUser = useAuthStore((s) => s.user)
+  const canView   = hasPermission("view help requests")
+  const canEdit   = hasPermission("edit help requests")
+  const canCreate = hasPermission("create help requests")
+  const canDelete = hasPermission("delete help requests")
+  const showMenu  = canView || canEdit || canDelete
   return (
     <div className="w-full overflow-x-auto rounded-md border">
       <Table>
@@ -188,61 +197,73 @@ export function HelpRequestTableView({
                   {formatDate(request.created_at)}
                 </TableCell>
 
-                {/* Row-level actions dropdown */}
+                {/* Row-level actions dropdown — only rendered when the user has at least one permission */}
                 <TableCell className="text-right py-3">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        className="opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        <MoreHorizontal className="size-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => onSelect(request)}>
-                        <Eye className="size-4" />
-                        View Details
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => onEdit(request)}>
-                        <Pencil className="size-4" />
-                        Edit
-                      </DropdownMenuItem>
-                      {/* Claim or unclaim depending on whether a helper is set */}
-                      {!request.helper ? (
-                        <DropdownMenuItem onClick={() => onClaim(request)}>
-                          <HandHelping className="size-4" />
-                          Claim
-                        </DropdownMenuItem>
-                      ) : (
-                        <DropdownMenuItem onClick={() => onUnclaim(request)}>
-                          <X className="size-4" />
-                          Unclaim
-                        </DropdownMenuItem>
-                      )}
-                      {/* Assign — opens dialog to pick a specific user as helper */}
-                      <DropdownMenuItem onClick={() => onAssign(request)}>
-                        <UserCheck className="size-4" />
-                        Assign
-                      </DropdownMenuItem>
-                      {/* Complete — only shown when request is not yet completed */}
-                      {!request.is_completed && (
-                        <DropdownMenuItem onClick={() => onComplete(request)}>
-                          <CheckCircle2 className="size-4" />
-                          Complete
-                        </DropdownMenuItem>
-                      )}
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        variant="destructive"
-                        onClick={() => onDelete(request)}
-                      >
-                        <Trash2 className="size-4" />
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  {showMenu && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          className="opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <MoreHorizontal className="size-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        {canView && (
+                          <DropdownMenuItem onClick={() => onSelect(request)}>
+                            <Eye className="size-4" />
+                            View Details
+                          </DropdownMenuItem>
+                        )}
+                        {canEdit && (
+                          <DropdownMenuItem onClick={() => onEdit(request)}>
+                            <Pencil className="size-4" />
+                            Edit
+                          </DropdownMenuItem>
+                        )}
+                        {/* Claim or unclaim depending on state and current-user ownership */}
+                        {!request.helper ? (
+                          <DropdownMenuItem onClick={() => onClaim(request)}>
+                            <HandHelping className="size-4" />
+                            Claim
+                          </DropdownMenuItem>
+                        ) : request.helper.id === currentUser?.id ? (
+                          <DropdownMenuItem onClick={() => onUnclaim(request)}>
+                            <X className="size-4" />
+                            Unclaim
+                          </DropdownMenuItem>
+                        ) : null}
+                        {/* Assign — requires edit or create help requests permission */}
+                        {(canEdit || canCreate) && (
+                          <DropdownMenuItem onClick={() => onAssign(request)}>
+                            <UserCheck className="size-4" />
+                            Assign
+                          </DropdownMenuItem>
+                        )}
+                        {/* Complete — only for the current helper when not yet completed */}
+                        {request.helper?.id === currentUser?.id && !request.is_completed && (
+                          <DropdownMenuItem onClick={() => onComplete(request)}>
+                            <CheckCircle2 className="size-4" />
+                            Complete
+                          </DropdownMenuItem>
+                        )}
+                        {canDelete && (
+                          <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              variant="destructive"
+                              onClick={() => onDelete(request)}
+                            >
+                              <Trash2 className="size-4" />
+                              Delete
+                            </DropdownMenuItem>
+                          </>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
                 </TableCell>
               </TableRow>
             )

@@ -42,6 +42,8 @@ import {
   TICKET_PRIORITY_VARIANTS,
   formatTicketDate,
 } from "@/app/tickets/types"
+import { usePermissions } from "@/hooks/usePermissions"
+import { useAuthStore } from "@/app/(auth)/stores/authStore"
 
 type TicketTableViewProps = {
   tickets: ApiTicket[]
@@ -76,6 +78,13 @@ export function TicketTableView({
   onStatusChange,
   onClaim,
 }: TicketTableViewProps) {
+  const { hasPermission, hasRole } = usePermissions()
+  const currentUser = useAuthStore((s) => s.user)
+  const isAdmin   = hasRole("admin")
+  const canView   = hasPermission("view tickets")
+  const canEdit   = hasPermission("edit tickets")
+  const canDelete = hasPermission("delete tickets")
+  const showMenu  = canView || canEdit || canDelete
   return (
     // Wrap in overflow-x-auto so the table stays scrollable on small screens
     <div className="w-full overflow-x-auto rounded-md border">
@@ -102,11 +111,17 @@ export function TicketTableView({
             <TableRow>
               <TableCell colSpan={10} className="h-24 text-center text-sm text-muted-foreground">
                 No tickets found.
+
               </TableCell>
             </TableRow>
           )}
 
-          {tickets.map((ticket) => (
+          {tickets.map((ticket) => {
+            const isAssignee = ticket.assignee?.id === currentUser?.id
+            const isRequester = ticket.requester?.id === currentUser?.id
+            const canAssignAction = isAdmin || isRequester
+
+            return (
             <TableRow key={ticket.id} className="group">
               {/* ID — backend returns a numeric id */}
               <TableCell className="py-3">
@@ -212,81 +227,92 @@ export function TicketTableView({
 
               {/* Row actions dropdown */}
               <TableCell className="py-3 text-right">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="size-8 opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                      <MoreHorizontal className="size-4" />
-                      <span className="sr-only">Open actions</span>
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-44">
-                    <DropdownMenuItem onClick={() => onSelect(ticket)}>
-                      <Eye className="size-4 mr-2" />
-                      View
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => onEdit(ticket)}>
-                      <Pencil className="size-4 mr-2" />
-                      Edit
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
+                {showMenu && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <MoreHorizontal className="size-4" />
+                        <span className="sr-only">Open actions</span>
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-44">
+                      {canView && (
+                        <DropdownMenuItem onClick={() => onSelect(ticket)}>
+                          <Eye className="size-4 mr-2" />
+                          View
+                        </DropdownMenuItem>
+                      )}
+                      {canEdit && (
+                        <DropdownMenuItem onClick={() => onEdit(ticket)}>
+                          <Pencil className="size-4 mr-2" />
+                          Edit
+                        </DropdownMenuItem>
+                      )}
+                      <DropdownMenuSeparator />
 
-                    {/* Claim — self-assign the current user (shown when unassigned) */}
-                    {onClaim && !ticket.assignee && (
-                      <DropdownMenuItem onClick={() => onClaim(ticket)}>
-                        <UserCheck className="size-4 mr-2" />
-                        Claim
-                      </DropdownMenuItem>
-                    )}
+                      {/* Claim — self-assign the current user (shown when unassigned) */}
+                      {onClaim && !ticket.assignee && (
+                        <DropdownMenuItem onClick={() => onClaim(ticket)}>
+                          <UserCheck className="size-4 mr-2" />
+                          Claim
+                        </DropdownMenuItem>
+                      )}
 
-                    {/* Assign — shown when ticket has no assignee */}
-                    {onAssign && !ticket.assignee && (
-                      <DropdownMenuItem onClick={() => onAssign(ticket)}>
-                        <UserRoundPlus className="size-4 mr-2" />
-                        Assign
-                      </DropdownMenuItem>
-                    )}
+                      {/* Assign — only the admin or requester can assign */}
+                      {onAssign && !ticket.assignee && canAssignAction && (
+                        <DropdownMenuItem onClick={() => onAssign(ticket)}>
+                          <UserRoundPlus className="size-4 mr-2" />
+                          Assign
+                        </DropdownMenuItem>
+                      )}
 
-                    {/* Unassign — shown when ticket has an assignee */}
-                    {onUnassign && ticket.assignee && (
-                      <DropdownMenuItem onClick={() => onUnassign(ticket)}>
-                        <UserRoundX className="size-4 mr-2" />
-                        Unassign
-                      </DropdownMenuItem>
-                    )}
+                      {/* Unassign — only the current assignee can unassign */}
+                      {onUnassign && ticket.assignee && isAssignee && (
+                        <DropdownMenuItem onClick={() => onUnassign(ticket)}>
+                          <UserRoundX className="size-4 mr-2" />
+                          Unassign
+                        </DropdownMenuItem>
+                      )}
 
-                    {/* Change status — opens status dialog */}
-                    {onStatusChange && (
-                      <DropdownMenuItem onClick={() => onStatusChange(ticket)}>
-                        <ArrowUpDown className="size-4 mr-2" />
-                        Change Status
-                      </DropdownMenuItem>
-                    )}
+                      {/* Change status — only the current assignee can change status */}
+                      {onStatusChange && isAssignee && (
+                        <DropdownMenuItem onClick={() => onStatusChange(ticket)}>
+                          <ArrowUpDown className="size-4 mr-2" />
+                          Change Status
+                        </DropdownMenuItem>
+                      )}
 
-                    {/* Complete — only when not already resolved */}
-                    {onComplete && ticket.status !== "resolved" && (
-                      <DropdownMenuItem onClick={() => onComplete(ticket)}>
-                        <CheckCircle2 className="size-4 mr-2" />
-                        Complete
-                      </DropdownMenuItem>
-                    )}
+                      {/* Complete — only when not already resolved and the user is the assignee */}
+                      {onComplete && ticket.status !== "resolved" && isAssignee && (
+                        <DropdownMenuItem onClick={() => onComplete(ticket)}>
+                          <CheckCircle2 className="size-4 mr-2" />
+                          Complete
+                        </DropdownMenuItem>
+                      )}
 
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      className="text-destructive focus:text-destructive"
-                      onClick={() => onDelete(ticket)}
-                    >
-                      <Trash2 className="size-4 mr-2" />
-                      Delete
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                      {canDelete && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            className="text-destructive focus:text-destructive"
+                            onClick={() => onDelete(ticket)}
+                          >
+                            <Trash2 className="size-4 mr-2" />
+                            Delete
+                          </DropdownMenuItem>
+                        </>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
               </TableCell>
             </TableRow>
-          ))}
+            )
+          })}
         </TableBody>
       </Table>
     </div>

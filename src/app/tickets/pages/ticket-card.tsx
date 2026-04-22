@@ -26,6 +26,8 @@ import {
   Calendar,
 } from "lucide-react"
 import { useTilt } from "@/hooks/use-tilt"
+import { usePermissions } from "@/hooks/usePermissions"
+import { useAuthStore } from "@/app/(auth)/stores/authStore"
 // API-aligned type and display helpers
 import type { ApiTicket } from "@/app/tickets/types"
 import {
@@ -71,6 +73,17 @@ export function TicketCard({
   onClaim,
 }: TicketCardProps) {
   const { ref, style } = useTilt<HTMLDivElement>({ maxTilt: 5, scale: 1.01 })
+  const { hasPermission, hasRole } = usePermissions()
+  const currentUser = useAuthStore((s) => s.user)
+  const isAssignee  = ticket.assignee?.id === currentUser?.id
+  const isRequester = ticket.requester?.id === currentUser?.id
+  const isAdmin     = hasRole("admin")
+  const canAssignAction = isAdmin || isRequester
+
+  const canView   = hasPermission("view tickets")
+  const canEdit   = hasPermission("edit tickets")
+  const canDelete = hasPermission("delete tickets")
+  const showMenu  = canView || canEdit || canDelete
 
   // Show complete button only when ticket is not already resolved
   const canComplete = ticket.status !== "resolved"
@@ -93,65 +106,73 @@ export function TicketCard({
           </div>
 
           {/* Actions dropdown — contains all quick actions */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon-xs">
-                <MoreHorizontal className="size-3.5" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => onEdit(ticket)}>
-                <Pencil className="size-4" />
-                Edit
-              </DropdownMenuItem>
+          {showMenu && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon-xs">
+                  <MoreHorizontal className="size-3.5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {canEdit && (
+                  <DropdownMenuItem onClick={() => onEdit(ticket)}>
+                    <Pencil className="size-4" />
+                    Edit
+                  </DropdownMenuItem>
+                )}
 
-              {/* Claim — self-assign when unassigned */}
-              {onClaim && !ticket.assignee && (
-                <DropdownMenuItem onClick={() => onClaim(ticket)}>
-                  <UserCheck className="size-4" />
-                  Claim
-                </DropdownMenuItem>
-              )}
+                {/* Claim — self-assign when unassigned */}
+                {onClaim && !ticket.assignee && (
+                  <DropdownMenuItem onClick={() => onClaim(ticket)}>
+                    <UserCheck className="size-4" />
+                    Claim
+                  </DropdownMenuItem>
+                )}
 
-              {/* Assign — shown when ticket has no assignee */}
-              {onAssign && !ticket.assignee && (
-                <DropdownMenuItem onClick={() => onAssign(ticket)}>
-                  <UserPlus className="size-4" />
-                  Assign
-                </DropdownMenuItem>
-              )}
+                {/* Assign — only the admin or requester can assign */}
+                {onAssign && !ticket.assignee && canAssignAction && (
+                  <DropdownMenuItem onClick={() => onAssign(ticket)}>
+                    <UserPlus className="size-4" />
+                    Assign
+                  </DropdownMenuItem>
+                )}
 
-              {/* Unassign — shown when ticket has an assignee */}
-              {onUnassign && ticket.assignee && (
-                <DropdownMenuItem onClick={() => onUnassign(ticket)}>
-                  <UserRoundX className="size-4" />
-                  Unassign
-                </DropdownMenuItem>
-              )}
+                {/* Unassign — only the current assignee can unassign */}
+                {onUnassign && ticket.assignee && isAssignee && (
+                  <DropdownMenuItem onClick={() => onUnassign(ticket)}>
+                    <UserRoundX className="size-4" />
+                    Unassign
+                  </DropdownMenuItem>
+                )}
 
-              {/* Change status action */}
-              {onStatusChange && (
-                <DropdownMenuItem onClick={() => onStatusChange(ticket)}>
-                  <ArrowUpDown className="size-4" />
-                  Change Status
-                </DropdownMenuItem>
-              )}
+                {/* Change status — only the current assignee can change status */}
+                {onStatusChange && isAssignee && (
+                  <DropdownMenuItem onClick={() => onStatusChange(ticket)}>
+                    <ArrowUpDown className="size-4" />
+                    Change Status
+                  </DropdownMenuItem>
+                )}
 
-              {/* Complete — only when not already resolved */}
-              {onComplete && canComplete && (
-                <DropdownMenuItem onClick={() => onComplete(ticket)}>
-                  <CheckCircle2 className="size-4" />
-                  Complete
-                </DropdownMenuItem>
-              )}
+                {/* Complete — only when not already resolved and the user is the assignee */}
+                {onComplete && canComplete && isAssignee && (
+                  <DropdownMenuItem onClick={() => onComplete(ticket)}>
+                    <CheckCircle2 className="size-4" />
+                    Complete
+                  </DropdownMenuItem>
+                )}
 
-              <DropdownMenuSeparator />
-              <DropdownMenuItem variant="destructive" onClick={() => onDelete(ticket)}>
-                <Trash2 className="size-4" />
-                Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+                {canDelete && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem variant="destructive" onClick={() => onDelete(ticket)}>
+                      <Trash2 className="size-4" />
+                      Delete
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
 
         {/* Title and description */}
@@ -211,14 +232,16 @@ export function TicketCard({
 
       {/* Footer — quick action buttons visible at a glance */}
       <CardFooter className="flex items-center gap-2 w-full mt-auto flex-wrap">
-        <Button variant="secondary" size="sm" className="flex-1 min-w-[80px]" onClick={() => onEdit(ticket)}>
-          <Pencil className="size-3.5" />
-          Edit
-        </Button>
+        {canEdit && (
+          <Button variant="secondary" size="sm" className="flex-1 min-w-[80px]" onClick={() => onEdit(ticket)}>
+            <Pencil className="size-3.5" />
+            Edit
+          </Button>
+        )}
 
         {/* Assign / Claim / Unassign quick buttons */}
         {ticket.assignee ? (
-          onUnassign && (
+          onUnassign && isAssignee && (
             <Button variant="outline" size="sm" className="flex-1 min-w-[80px]" onClick={() => onUnassign(ticket)}>
               <UserRoundX className="size-3.5" />
               Unassign
@@ -233,7 +256,7 @@ export function TicketCard({
               </Button>
             )}
 
-            {onAssign && (
+            {onAssign && canAssignAction && (
               <Button variant="outline" size="sm" className="flex-1 min-w-[80px]" onClick={() => onAssign(ticket)}>
                 <UserPlus className="size-3.5" />
                 Assign
@@ -242,17 +265,19 @@ export function TicketCard({
           </>
         )}
 
-        {/* Complete button — only when ticket is not resolved */}
-        {onComplete && canComplete && (
+        {/* Complete button — only when ticket is not resolved and the user is the assignee */}
+        {onComplete && canComplete && isAssignee && (
           <Button variant="outline" size="sm" className="flex-1 min-w-[80px]" onClick={() => onComplete(ticket)}>
             <CheckCircle2 className="size-3.5" />
             Complete
           </Button>
         )}
 
-        <Button variant="destructive" size="icon-sm" onClick={() => onDelete(ticket)}>
-          <Trash2 className="size-3.5" />
-        </Button>
+        {canDelete && (
+          <Button variant="destructive" size="icon-sm" onClick={() => onDelete(ticket)}>
+            <Trash2 className="size-3.5" />
+          </Button>
+        )}
       </CardFooter>
     </Card>
   )

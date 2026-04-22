@@ -43,6 +43,7 @@ import { TaskTableSkeleton, TaskGridSkeleton } from "@/app/tasks/pages/task-skel
 import { ConfirmDeleteTaskDialog } from "@/app/tasks/pages/confirm-delete-task-dialog"
 import { TaskForm } from "@/app/tasks/pages/task-form"
 import { TaskRatingForm } from "@/app/tasks/pages/task-rating-form"
+import { usePermissions } from "@/hooks/usePermissions"
 // Use the API-aligned Task type
 import type { Task, TaskStatus, TaskPriority } from "@/app/tasks/types"
 
@@ -98,6 +99,12 @@ function getInitials(name: string) {
 export default function TasksPage() {
   const navigate = useNavigate()
   const location = useLocation()
+
+  const { hasPermission } = usePermissions()
+  const canCreate = hasPermission("create tasks")
+  const canEdit   = hasPermission("edit tasks")
+  const canDelete = hasPermission("delete tasks")
+  const canRate   = hasPermission("create task ratings")
   const [searchParams] = useSearchParams()
 
   // ── View + UI state ──────────────────────────────────────────────
@@ -354,14 +361,16 @@ export default function TasksPage() {
               Curating and managing workflow excellence across all enterprise verticals.
             </p>
           </div>
-          <Button
-            className="transition-all hover:shadow-md hover:shadow-primary/25"
-            size="lg"
-            onClick={handleCreate}
-          >
-            <Plus />
-            Add New Task
-          </Button>
+          {canCreate && (
+            <Button
+              className="transition-all hover:shadow-md hover:shadow-primary/25"
+              size="lg"
+              onClick={handleCreate}
+            >
+              <Plus />
+              Add New Task
+            </Button>
+          )}
         </div>
 
         {/* ── Controls row 1: search + view toggle ── */}
@@ -550,6 +559,9 @@ export default function TasksPage() {
           <>
             {view === "table" ? (
               <TaskTableView
+                canEdit={canEdit}
+                canDelete={canDelete}
+                canRate={canRate}
                 tasks={tasks}
                 onSelect={handleSelect}
                 onEdit={handleEdit}
@@ -558,6 +570,9 @@ export default function TasksPage() {
               />
             ) : (
               <TaskGridView
+                canEdit={canEdit}
+                canDelete={canDelete}
+                canRate={canRate}
                 tasks={tasks}
                 onSelect={handleSelect}
                 onEdit={handleEdit}

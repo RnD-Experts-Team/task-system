@@ -27,10 +27,16 @@ import { SectionList } from "./sections/SectionList"
 import { ProjectAssignmentsPanel } from "./components/project-assignments-panel"
 // Ratings panel — shows all stakeholder ratings submitted for this project
 import { StakeholderRatingsPanel } from "./components/stakeholder-ratings-panel"
+import { usePermissions } from "@/hooks/usePermissions"
 
 export default function ProjectDetailsPage() {
   const navigate = useNavigate()
   const params = useParams<{ id: string }>()
+  const { hasPermission } = usePermissions()
+  const canEdit = hasPermission("edit projects")
+  const canViewKanban = hasPermission("view projects")
+  // const canRate = hasPermission("create stakeholder ratings")
+  const canViewSections = hasPermission("view sections")
 
   const projectId = useMemo(() => {
     const parsed = Number(params.id)
@@ -101,18 +107,23 @@ export default function ProjectDetailsPage() {
 
               <div className="flex items-center gap-2">
                 {/* Navigate to the Kanban board for this project */}
-                <Button variant="outline" asChild>
-                  <Link to={projectKanbanPath(project.id)}>
-                    <LayoutGrid className="size-4" />
-                    Open Kanban
-                  </Link>
-                </Button>
-                <Button asChild>
-                  <Link to={`/projects/${project.id}/edit`}>
-                    <Pencil className="size-4" />
-                    Edit Project
-                  </Link>
-                </Button>
+                {canViewKanban && (
+                  <Button variant="outline" asChild>
+                    <Link to={projectKanbanPath(project.id)}>
+                      <LayoutGrid className="size-4" />
+                      Open Kanban
+                    </Link>
+                  </Button>
+                )}
+                
+                {canEdit && (
+                  <Button asChild>
+                    <Link to={`/projects/${project.id}/edit`}>
+                      <Pencil className="size-4" />
+                      Edit Project
+                    </Link>
+                  </Button>
+                )}
               </div>
             </CardHeader>
             <CardContent>
@@ -187,22 +198,24 @@ export default function ProjectDetailsPage() {
           <Separator />
 
           {/* ── Sections with tasks ── */}
-          <div className="space-y-3">
-            <h2 className="text-lg font-semibold tracking-tight">Sections</h2>
-            <p className="text-sm text-muted-foreground">
-              Each section groups related tasks within this project.
-            </p>
-            <SectionList
-              sections={sections}
-              loading={sectionsLoading}
-              error={sectionsError}
-              projectId={projectId!}
-              submitting={sectionsSubmitting}
-              onCreateSection={createSection}
-              onUpdateSection={updateSection}
-              onDeleteSection={deleteSection}
-            />
-          </div>
+          {canViewSections && (
+            <div className="space-y-3">
+              <h2 className="text-lg font-semibold tracking-tight">Sections</h2>
+              <p className="text-sm text-muted-foreground">
+                Each section groups related tasks within this project.
+              </p>
+              <SectionList
+                sections={sections}
+                loading={sectionsLoading}
+                error={sectionsError}
+                projectId={projectId!}
+                submitting={sectionsSubmitting}
+                onCreateSection={createSection}
+                onUpdateSection={updateSection}
+                onDeleteSection={deleteSection}
+              />
+            </div>
+          )}
 
           <Separator />
 

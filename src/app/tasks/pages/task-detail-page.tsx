@@ -16,13 +16,13 @@ import {
   ArrowLeft,
   Calendar,
   CheckCircle2,
-  Circle,
   Star,
   Users,
   Weight,
   HelpCircle,
   ChevronLeft,
   ChevronRight,
+  Pencil,
 } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
@@ -40,9 +40,9 @@ import {
 } from "@/components/ui/table"
 import { useTask } from "@/app/tasks/hooks/useTask"
 import { taskService } from "@/app/tasks/services/taskService"
+import { usePermissions } from "@/hooks/usePermissions"
 import type {
   Task,
-  Subtask,
   TaskHelpRequest,
   TaskRatingRecord,
   HelpRequestRatingValue,
@@ -51,6 +51,7 @@ import type {
 import { helpRequestRatingLabel } from "@/app/tasks/types"
 import type { ApiValidationError } from "@/types"
 import { TaskCommentsSection } from "@/app/tasks/components/task-comments-section"
+import { TaskSubtasksSection } from "@/app/tasks/components/task-subtasks-section"
 import { HtmlContent } from "@/components/ui/html-content"
 
 // â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -213,220 +214,6 @@ function SectionPagination({
         </Button>
       </div>
     </div>
-  )
-}
-
-// â”€â”€â”€ Subtasks Section â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-// Fetches from GET /tasks/{taskId}/subtasks (paginated).
-// Replaces the static task.subtasks rendering with live API data.
-
-function SubtasksSection({ taskId }: { taskId: number }) {
-  const [subtasks, setSubtasks] = useState<Subtask[]>([])
-  const [pagination, setPagination] = useState<TaskPagination | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [page, setPage] = useState(1)
-  // Track which subtask IDs are currently mid-toggle to prevent duplicate requests
-  const [togglingIds, setTogglingIds] = useState<Set<number>>(new Set())
-
-  // Fetch subtasks for the current page from the dedicated endpoint
-  const fetchSubtasks = useCallback(
-    (p: number) => {
-      let mounted = true
-      setLoading(true)
-      setError(null)
-
-      taskService
-        .getSubtasksByTask(taskId, p)
-        .then((res) => {
-          if (!mounted) return
-          setSubtasks(res.data)
-          setPagination(res.pagination)
-        })
-        .catch((err: unknown) => {
-          if (!mounted) return
-          const msg = extractError(err, "Failed to load subtasks.")
-          // Only set error for non-cancel errors
-          if (msg) setError(msg)
-        })
-        .finally(() => {
-          if (mounted) setLoading(false)
-        })
-
-      return () => {
-        mounted = false
-      }
-    },
-    [taskId],
-  )
-
-  useEffect(() => {
-    fetchSubtasks(page)
-  }, [fetchSubtasks, page])
-
-  // Toggle completion state for a subtask (optimistic UI)
-  async function handleToggle(subtask: Subtask) {
-    if (togglingIds.has(subtask.id)) return
-
-    const previous = subtask.is_complete
-
-    // Optimistic update
-    setSubtasks((prev) => prev.map((s) => (s.id === subtask.id ? { ...s, is_complete: !previous } : s)))
-    setTogglingIds((prev) => new Set(prev).add(subtask.id))
-
-    try {
-      const updated = await taskService.toggleSubtask(subtask.id)
-      // Sync with server truth
-      setSubtasks((prev) => prev.map((s) => (s.id === subtask.id ? updated : s)))
-    } catch (err: unknown) {
-      // Revert on error
-      setSubtasks((prev) => prev.map((s) => (s.id === subtask.id ? { ...s, is_complete: previous } : s)))
-      const msg = extractError(err, "Failed to toggle subtask.")
-      if (msg) {
-        setError(msg)
-        // Clear the transient toggle error after a short delay
-        setTimeout(() => setError(null), 5000)
-      }
-    } finally {
-      setTogglingIds((prev) => {
-        const next = new Set(prev)
-        next.delete(subtask.id)
-        return next
-      })
-    }
-  }
-
-  const completedCount = subtasks.filter((s) => s.is_complete).length
-  const totalCount = pagination?.total ?? subtasks.length
-  const progress = totalCount > 0 ? Math.round((completedCount / (subtasks.length || 1)) * 100) : 0
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base flex items-center gap-2">
-          <CheckCircle2 className="size-4 text-muted-foreground" />
-          Subtasks
-          {/* Progress bar in the card header */}
-          {totalCount > 0 && (
-            <div className="flex items-center gap-2 ml-auto">
-              <div className="h-1.5 w-24 bg-muted rounded-full overflow-hidden hidden sm:block">
-                <div
-                  className="h-full bg-primary rounded-full transition-all"
-                  style={{ width: `${progress}%` }}
-                />
-              </div>
-              <Badge variant="secondary" className="text-xs">
-                {totalCount}
-              </Badge>
-            </div>
-          )}
-        </CardTitle>
-      </CardHeader>
-
-      <CardContent>
-        {/* Loading state */}
-        {loading && (
-          <div className="space-y-2">
-            {[1, 2, 3].map((i) => (
-              <Skeleton key={i} className="h-14 w-full" />
-            ))}
-          </div>
-        )}
-
-        {/* Error state (ignores cancel errors) */}
-        {!loading && error && <SectionError message={error} />}
-
-        {/* Empty state */}
-        {!loading && !error && subtasks.length === 0 && (
-          <p className="text-sm text-muted-foreground">No subtasks found for this task.</p>
-        )}
-
-        {/* Subtask list â€” responsive card rows */}
-        {!loading && !error && subtasks.length > 0 && (
-          <>
-            <div className="space-y-2">
-              {subtasks.map((subtask) => (
-                <div
-                  key={subtask.id}
-                  className={`flex items-start gap-3 p-3 rounded-lg transition-colors ${
-                    subtask.is_complete
-                      ? "bg-muted/30"
-                      : "bg-muted/50 border-l-2 border-primary"
-                  }`}
-                >
-                  {/* Completion icon (clickable to toggle) */}
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="p-0"
-                    onClick={() => handleToggle(subtask)}
-                    disabled={togglingIds.has(subtask.id)}
-                    aria-label={subtask.is_complete ? "Mark subtask as incomplete" : "Mark subtask as complete"}
-                  >
-                    {subtask.is_complete ? (
-                      <CheckCircle2 className="size-4 text-green-500 shrink-0 mt-0.5" />
-                    ) : (
-                      <Circle className="size-4 text-muted-foreground shrink-0 mt-0.5" />
-                    )}
-                  </Button>
-
-                  <div className="flex flex-col gap-0.5 flex-1 min-w-0">
-                    <span
-                      className={`text-sm font-medium ${
-                        subtask.is_complete
-                          ? "text-muted-foreground line-through"
-                          : "text-foreground"
-                      }`}
-                    >
-                      {subtask.name}
-                    </span>
-
-                    {subtask.description && (
-                      <HtmlContent
-                        html={subtask.description}
-                        className="text-xs text-muted-foreground line-clamp-2"
-                      />
-                    )}
-
-                    {/* Priority + due date row */}
-                    <div className="flex items-center gap-2 mt-1 flex-wrap">
-                      <Badge
-                        variant={priorityVariant[subtask.priority] ?? "outline"}
-                        className="text-[10px] capitalize h-4"
-                      >
-                        {subtask.priority}
-                      </Badge>
-                      <span className="text-[10px] text-muted-foreground font-mono">
-                        due {subtask.due_date}
-                      </span>
-                      {/* Subtask ID */}
-                      <span className="text-[10px] text-muted-foreground font-mono">
-                        #{subtask.id}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Completion badge on the right */}
-                  {subtask.is_complete && (
-                    <Badge variant="secondary" className="text-[10px] shrink-0">
-                      Done
-                    </Badge>
-                  )}
-                </div>
-              ))}
-            </div>
-
-            {/* Pagination controls */}
-            {pagination && (
-              <SectionPagination
-                pagination={pagination}
-                onPageChange={(p) => setPage(p)}
-              />
-            )}
-          </>
-        )}
-      </CardContent>
-    </Card>
   )
 }
 
@@ -810,11 +597,15 @@ function RatingsSection({ taskId }: { taskId: number }) {
   )
 }
 
-// â”€â”€â”€ Page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Page ───────────────────────────────────────────────────────────────────
 
 export default function TaskDetailPage() {
   const navigate = useNavigate()
   const params = useParams<{ id: string }>()
+
+  const { hasPermission } = usePermissions()
+  const canEdit   = hasPermission("edit tasks")
+  const canRate   = hasPermission("create task ratings")
 
   // Parse the route param to a number; null if invalid
   const taskId = useMemo(() => {
@@ -947,6 +738,42 @@ export default function TaskDetailPage() {
                   </p>
                 )}
               </div>
+
+              {/* Action buttons — Edit (edit tasks) and Rate (rating permissions) */}
+              {(canEdit || canRate) && (
+                <div className="flex flex-wrap gap-2 shrink-0">
+                  {canEdit && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        navigate("/tasks", {
+                          state: {
+                            openForm: "edit",
+                            editTask: task,
+                            returnTo: `/tasks/${task.id}`,
+                          },
+                        })
+                      }
+                    >
+                      <Pencil className="size-3.5" />
+                      Edit Task
+                    </Button>
+                  )}
+                  {canRate && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        navigate("/tasks", { state: { openForm: "create", defaultProjectId: task.section?.project?.id } })
+                      }
+                    >
+                      <Star className="size-3.5" />
+                      Rate
+                    </Button>
+                  )}
+                </div>
+              )}
             </CardHeader>
 
             <CardContent className="space-y-6">
@@ -1068,8 +895,8 @@ export default function TaskDetailPage() {
             </CardContent>
           </Card>
 
-          {/* â”€â”€ Subtasks section â€” fetches GET /tasks/{taskId}/subtasks â”€â”€ */}
-          {taskId && <SubtasksSection taskId={taskId} />}
+          {/* -- Subtasks section -- TaskSubtasksSection handles CRUD + permissions internally -- */}
+          {taskId && <TaskSubtasksSection mode="edit" taskId={taskId} />}
 
           {/* â”€â”€ Help Requests section â€” fetches GET /tasks/{taskId}/help-requests â”€â”€ */}
           {taskId && <HelpRequestsSection taskId={taskId} />}

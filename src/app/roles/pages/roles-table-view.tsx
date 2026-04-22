@@ -10,11 +10,12 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Pencil, Trash2, Shield } from "lucide-react"
 import type { Role } from "@/types"
+import { usePermissions } from "@/hooks/usePermissions"
 
 type RolesTableViewProps = {
   roles: Role[]
-  onEdit: (role: Role) => void
-  onDelete: (role: Role) => void
+  onEdit?: (role: Role) => void
+  onDelete?: (role: Role) => void
   onSelect: (role: Role) => void
 }
 
@@ -26,6 +27,9 @@ export function RolesTableView({
   onDelete,
   onSelect,
 }: RolesTableViewProps) {
+  const { hasPermission } = usePermissions()
+  const canViewPermissions = hasPermission("view permissions")
+  const showActions = !!onEdit || !!onDelete
   if (roles.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed py-16 text-center">
@@ -47,10 +51,10 @@ export function RolesTableView({
       <TableHeader>
         <TableRow>
           <TableHead>Role Name</TableHead>
-          <TableHead>Permissions</TableHead>
+          {canViewPermissions && <TableHead>Permissions</TableHead>}
           <TableHead>Guard</TableHead>
           <TableHead>Created</TableHead>
-          <TableHead className="text-right">Actions</TableHead>
+          {showActions && <TableHead className="text-right">Actions</TableHead>}
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -71,9 +75,11 @@ export function RolesTableView({
               </div>
             </TableCell>
             <TableCell className="py-3">
-              <Badge variant="secondary" className="text-xs">
-                {role.permissions.length} permission{role.permissions.length !== 1 ? "s" : ""}
-              </Badge>
+              {canViewPermissions && (
+                <Badge variant="secondary" className="text-xs">
+                  {role.permissions.length} permission{role.permissions.length !== 1 ? "s" : ""}
+                </Badge>
+              )}
             </TableCell>
             <TableCell className="py-3">
               <Badge variant="outline" className="font-mono text-xs">
@@ -83,24 +89,30 @@ export function RolesTableView({
             <TableCell className="text-muted-foreground py-3 text-sm">
               {new Date(role.created_at).toLocaleDateString()}
             </TableCell>
-            <TableCell className="text-right py-3">
-              <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                <Button
-                  variant="ghost"
-                  size="icon-lg"
-                  onClick={() => onEdit(role)}
-                >
-                  <Pencil />
-                </Button>
-                <Button
-                  variant="destructive"
-                  size="icon-lg"
-                  onClick={() => onDelete(role)}
-                >
-                  <Trash2 />
-                </Button>
-              </div>
-            </TableCell>
+            {showActions && (
+              <TableCell className="text-right py-3">
+                <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  {onEdit && (
+                    <Button
+                      variant="ghost"
+                      size="icon-lg"
+                      onClick={() => onEdit(role)}
+                    >
+                      <Pencil />
+                    </Button>
+                  )}
+                  {onDelete && (
+                    <Button
+                      variant="destructive"
+                      size="icon-lg"
+                      onClick={() => onDelete(role)}
+                    >
+                      <Trash2 />
+                    </Button>
+                  )}
+                </div>
+              </TableCell>
+            )}
           </TableRow>
         ))}
       </TableBody>

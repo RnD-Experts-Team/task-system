@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef, memo } from "react"
 import { isCancel } from "axios"
+import { useNavigate } from "react-router"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -10,10 +11,18 @@ import { usersService } from "@/services/usersService"
 import type { User } from "@/app/users/data"
 
 const STATUS_COLORS = {
-  online: "bg-emerald-500",
-  away: "bg-amber-400",
-  offline: "bg-zinc-500",
+  online: "bg-emerald-500",   // active users — green
+  away: "bg-amber-400",       // away users — amber
+  offline: "bg-red-500",      // inactive / suspended — red
+  admin: "bg-violet-500",     // admin role — violet
 } as const
+
+const STATUS_LABELS: Record<keyof typeof STATUS_COLORS, string> = {
+  online: "Active",
+  away: "Away",
+  offline: "Inactive",
+  admin: "Admin",
+}
 
 type MemberStatus = keyof typeof STATUS_COLORS
 
@@ -31,7 +40,13 @@ type TeamMember = {
 type ExtendedMember = TeamMember & { _key: string }
 
 const FALLBACK_ROLE = "Team Member"
-const CYCLIC_STATUSES: MemberStatus[] = ["online", "away", "offline"]
+
+function resolveStatus(user: User): MemberStatus {
+  if (user.role.toLowerCase().includes("admin")) return "admin"
+  if (user.status === "active") return "online"
+  if (user.status === "away") return "away"
+  return "offline"
+}
 
 function getInitials(name: string): string {
   return name
@@ -49,7 +64,7 @@ function getDepartmentFromRole(role: string): string {
 }
 
 function mapUsersToTeamMembers(users: User[]): TeamMember[] {
-  return users.map((user, index) => {
+  return users.map((user) => {
     const normalizedRole = user.role && user.role !== "—" ? user.role : FALLBACK_ROLE
     return {
       id: user.id,
@@ -59,7 +74,7 @@ function mapUsersToTeamMembers(users: User[]): TeamMember[] {
       initials: getInitials(user.name),
       department: getDepartmentFromRole(normalizedRole),
       avatarUrl: user.avatarUrl,
-      status: CYCLIC_STATUSES[index % CYCLIC_STATUSES.length],
+      status: resolveStatus(user),
     }
   })
 }
@@ -130,12 +145,18 @@ function usePrefersReducedMotion(): boolean {
   return reduced
 }
 
-const TeamCard = memo(function TeamCard({ member, isActive }: { member: ExtendedMember; isActive: boolean }) {
+const TeamCard = memo(function TeamCard({ member, isActive, onClick }: { member: ExtendedMember; isActive: boolean; onClick?: () => void }) {
   return (
     <div
+      role="button"
+      tabIndex={0}
+      aria-label={`View ${member.name}'s profile`}
+      onClick={onClick}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onClick?.() }}
       className={cn(
         "glass-panel flex flex-col items-center gap-3 rounded-2xl border p-4 text-center min-w-0 max-w-full",
         "select-none transition-all duration-300",
+        onClick && "cursor-pointer hover:border-primary/50 hover:shadow-primary/20",
         isActive
           ? "border-primary/30 shadow-lg shadow-primary/10 scale-100 opacity-100"
           : "border-border/20 scale-95 opacity-50",
@@ -151,7 +172,8 @@ const TeamCard = memo(function TeamCard({ member, isActive }: { member: Extended
             "absolute bottom-0.5 right-0.5 size-3 rounded-full border-2 border-background",
             STATUS_COLORS[member.status],
           )}
-          aria-label={member.status}
+          aria-label={STATUS_LABELS[member.status]}
+          title={STATUS_LABELS[member.status]}
         />
       </div>
 
@@ -191,6 +213,7 @@ const CarouselControl = memo(function CarouselControl({ direction, onClick, disa
 const AUTOPLAY_INTERVAL_MS = 3500
 
 export default function TeamCarousel() {
+  const routerNavigate = useNavigate()
   const [members, setMembers] = useState<TeamMember[]>([])
   const [loading, setLoading] = useState<boolean>(true)
   const [error, setError] = useState<string | null>(null)
@@ -250,6 +273,7 @@ export default function TeamCarousel() {
   const isDraggingRef = useRef(false)
   const dragStartXRef = useRef(0)
   const dragOffsetRef = useRef(0)
+  const lastDragDistanceRef = useRef(0)
   const autoPlayTimerRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined)
 
   useEffect(() => {
@@ -259,7 +283,7 @@ export default function TeamCarousel() {
     dragOffsetRef.current = 0
   }, [CLONE_COUNT])
 
-  const navigate = useCallback((dir: 1 | -1) => {
+  const goSlide = useCallback((dir: 1 | -1) => {
     if (isAnimating || !canSlide) return
     setIsAnimating(true)
     setCurrentIndex((prev) => prev + dir)
@@ -281,9 +305,9 @@ export default function TeamCarousel() {
       clearInterval(autoPlayTimerRef.current)
       return
     }
-    autoPlayTimerRef.current = setInterval(() => navigate(1), AUTOPLAY_INTERVAL_MS)
+    autoPlayTimerRef.current = setInterval(() => goSlide(1), AUTOPLAY_INTERVAL_MS)
     return () => clearInterval(autoPlayTimerRef.current)
-  }, [canSlide, isHovered, prefersReducedMotion, navigate])
+  }, [canSlide, isHovered, prefersReducedMotion, goSlide])
 
   const onPointerStart = useCallback((clientX: number) => {
     if (!canSlide) return
@@ -306,15 +330,16 @@ export default function TeamCarousel() {
     isDraggingRef.current = false
     setIsDragging(false)
     const offset = dragOffsetRef.current
+    lastDragDistanceRef.current = Math.abs(offset)
     dragOffsetRef.current = 0
     setDragOffset(0)
 
     const containerWidth = containerRef.current?.clientWidth ?? 300
     const snapThreshold = (containerWidth / VISIBLE_COUNT) * 0.25
     if (Math.abs(offset) > snapThreshold) {
-      navigate(offset < 0 ? 1 : -1)
+      goSlide(offset < 0 ? 1 : -1)
     }
-  }, [navigate, VISIBLE_COUNT])
+  }, [goSlide, VISIBLE_COUNT])
 
   useEffect(() => {
     const onMM = (e: MouseEvent) => onPointerMove(e.clientX)
@@ -401,7 +426,7 @@ export default function TeamCarousel() {
 
       <div className="flex items-center gap-2">
         <div className="hidden sm:flex">
-          <CarouselControl direction="prev" onClick={() => navigate(-1)} disabled={isAnimating || !canSlide} />
+          <CarouselControl direction="prev" onClick={() => goSlide(-1)} disabled={isAnimating || !canSlide} />
         </div>
 
         <div
@@ -418,8 +443,8 @@ export default function TeamCarousel() {
           onTouchStart={(e) => onPointerStart(e.touches[0].clientX)}
           onKeyDown={(e) => {
             if (!canSlide) return
-            if (e.key === "ArrowLeft") { e.preventDefault(); navigate(-1) }
-            if (e.key === "ArrowRight") { e.preventDefault(); navigate(1) }
+            if (e.key === "ArrowLeft") { e.preventDefault(); goSlide(-1) }
+            if (e.key === "ArrowRight") { e.preventDefault(); goSlide(1) }
           }}
           tabIndex={0}
           role="region"
@@ -429,14 +454,21 @@ export default function TeamCarousel() {
           <div style={trackStyle} onTransitionEnd={handleTransitionEnd} className="flex py-1">
             {extended.map((member, idx) => (
               <div key={member._key} style={{ width: `${100 / TOTAL}%` }} className="flex-none px-1.5" aria-hidden={idx < CLONE_COUNT || idx >= CLONE_COUNT + REAL_COUNT}>
-                <TeamCard member={member} isActive={idx === activeIndex} />
+                <TeamCard
+                  member={member}
+                  isActive={idx === activeIndex}
+                  onClick={() => {
+                    if (lastDragDistanceRef.current > 5) return
+                    routerNavigate("/users", { state: { openUserId: member.id } })
+                  }}
+                />
               </div>
             ))}
           </div>
         </div>
 
         <div className="hidden sm:flex">
-          <CarouselControl direction="next" onClick={() => navigate(1)} disabled={isAnimating || !canSlide} />
+          <CarouselControl direction="next" onClick={() => goSlide(1)} disabled={isAnimating || !canSlide} />
         </div>
       </div>
 
@@ -450,7 +482,7 @@ export default function TeamCarousel() {
             onClick={() => {
               if (isAnimating || !canSlide) return
               setIsAnimating(true)
-              setCurrentIndex(CLONE_COUNT + i - centerOffset)
+              setCurrentIndex(CLONE_COUNT + i)
             }}
             disabled={!canSlide}
             className={cn("h-1 rounded-full transition-all duration-300", i === dotIndex ? "w-5 bg-primary" : "w-1 bg-border hover:bg-primary/40")}

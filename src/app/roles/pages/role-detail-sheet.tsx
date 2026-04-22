@@ -10,6 +10,7 @@ import { Separator } from "@/components/ui/separator"
 import { Button } from "@/components/ui/button"
 import { Pencil, Shield, CheckCircle2 } from "lucide-react"
 import type { Role } from "@/types"
+import { usePermissions } from "@/hooks/usePermissions"
 
 type RoleDetailSheetProps = {
   role: Role | null
@@ -28,6 +29,9 @@ export function RoleDetailSheet({
   onEdit,
   loading = false,
 }: RoleDetailSheetProps) {
+  const { hasPermission } = usePermissions()
+  const canViewPermissions = hasPermission("view permissions")
+
   if (!role && !loading) return null
 
   return (
@@ -41,7 +45,7 @@ export function RoleDetailSheet({
           <SheetDescription className="text-sm">
             Guard: <span className="font-medium text-foreground">{role?.guard_name}</span>
           </SheetDescription>
-          {role && (
+          {role && canViewPermissions && (
             <Badge variant="secondary" className="uppercase tracking-wider text-xs">
               {role.permissions.length} Permission{role.permissions.length !== 1 ? "s" : ""}
             </Badge>
@@ -69,28 +73,30 @@ export function RoleDetailSheet({
           <Separator />
 
           {/* Permissions */}
-          <section className="space-y-3">
-            <h3 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">
-              Permissions
-            </h3>
-            <div className="space-y-2">
-              {role.permissions.map((permission) => (
-                  <div
-                    key={permission.id}
-                    className="flex items-center gap-3 rounded-lg border p-3 border-primary/30 bg-primary/5"
-                  >
-                    <CheckCircle2 className="size-4 shrink-0 text-primary" />
-                    <p className="text-sm font-medium capitalize">{permission.name}</p>
-                    <Badge variant="secondary" className="ml-auto text-xs">
-                      Granted
-                    </Badge>
-                  </div>
-              ))}
-              {role.permissions.length === 0 && (
-                <p className="text-sm text-muted-foreground">No permissions assigned.</p>
-              )}
-            </div>
-          </section>
+          {canViewPermissions && (
+            <section className="space-y-3">
+              <h3 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">
+                Permissions
+              </h3>
+              <div className="space-y-2">
+                {role.permissions.map((permission) => (
+                    <div
+                      key={permission.id}
+                      className="flex items-center gap-3 rounded-lg border p-3 border-primary/30 bg-primary/5"
+                    >
+                      <CheckCircle2 className="size-4 shrink-0 text-primary" />
+                      <p className="text-sm font-medium capitalize">{permission.name}</p>
+                      <Badge variant="secondary" className="ml-auto text-xs">
+                        Granted
+                      </Badge>
+                    </div>
+                ))}
+                {role.permissions.length === 0 && (
+                  <p className="text-sm text-muted-foreground">No permissions assigned.</p>
+                )}
+              </div>
+            </section>
+          )}
 
           {onEdit && (
             <>

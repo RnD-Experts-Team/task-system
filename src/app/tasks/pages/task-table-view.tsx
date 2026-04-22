@@ -26,6 +26,9 @@ type TaskTableViewProps = {
   onEdit: (task: Task) => void
   onDelete: (task: Task) => void
   onRate: (task: Task) => void
+  canEdit: boolean
+  canDelete: boolean
+  canRate: boolean
 }
 
 function getInitials(name: string) {
@@ -130,7 +133,7 @@ function SubtasksProgress({
   )
 }
 
-export function TaskTableView({ tasks, onSelect, onEdit, onDelete, onRate }: TaskTableViewProps) {
+export function TaskTableView({ tasks, onSelect, onEdit, onDelete, onRate, canEdit, canDelete, canRate }: TaskTableViewProps) {
   return (
     // overflow-hidden prevents horizontal scroll; columns collapse via responsive classes
     <div className="w-full overflow-hidden">
@@ -257,6 +260,7 @@ export function TaskTableView({ tasks, onSelect, onEdit, onDelete, onRate }: Tas
 
                 {/*  Actions dropdown  */}
                 <TableCell className="text-right py-3">
+                  {(canEdit || canDelete || canRate) && (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button
@@ -272,20 +276,27 @@ export function TaskTableView({ tasks, onSelect, onEdit, onDelete, onRate }: Tas
                         <Eye className="size-4" />
                         View Details
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => onRate(task)}>
-                        <Star className="size-4" />
-                        Rate
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => onEdit(task)}>
-                        <Pencil className="size-4" />
-                        Edit
-                      </DropdownMenuItem>
-                      <DropdownMenuItem variant="destructive" onClick={() => onDelete(task)}>
-                        <Trash2 className="size-4" />
-                        Delete
-                      </DropdownMenuItem>
+                      {canRate && (
+                        <DropdownMenuItem onClick={() => onRate(task)}>
+                          <Star className="size-4" />
+                          Rate
+                        </DropdownMenuItem>
+                      )}
+                      {canEdit && (
+                        <DropdownMenuItem onClick={() => onEdit(task)}>
+                          <Pencil className="size-4" />
+                          Edit
+                        </DropdownMenuItem>
+                      )}
+                      {canDelete && (
+                        <DropdownMenuItem variant="destructive" onClick={() => onDelete(task)}>
+                          <Trash2 className="size-4" />
+                          Delete
+                        </DropdownMenuItem>
+                      )}
                     </DropdownMenuContent>
                   </DropdownMenu>
+                  )}
                 </TableCell>
               </TableRow>
             )

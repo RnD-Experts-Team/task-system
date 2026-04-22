@@ -1,4 +1,5 @@
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
+import { useLocation } from "react-router"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
@@ -17,11 +18,13 @@ import type { User } from "@/app/users/data"
 import type { UserFormData } from "@/app/users/pages/user-form"
 import { UserDetailSheet } from "./user-detail-sheet"
 import { ProtectedRoute } from "@/components/ProtectedRoute"
+import { usersService } from "@/services/usersService"
 
 type ViewMode = "table" | "grid"
 type PageView = "list" | "form"
 
 export default function UsersPage() {
+  const location = useLocation()
   const [view, setView] = useState<ViewMode>("table")
   const [search, setSearch] = useState("")
 
@@ -62,6 +65,27 @@ export default function UsersPage() {
     deleteUser: deleteUserApi,
     clearSubmitError,
   } = useUsers()
+
+  // ── Deep-link from dashboard (TeamCarousel card click or profile buttons) ───
+  useEffect(() => {
+    const state = location.state as { openUserId?: string; editUserId?: string } | null
+    if (!state) return
+
+    if (state.openUserId) {
+      usersService.getById(state.openUserId).then((user) => {
+        setSheetUser(user)
+        setSheetOpen(true)
+      }).catch(() => {})
+    } else if (state.editUserId) {
+      usersService.getById(state.editUserId).then((user) => {
+        clearSubmitError()
+        setSelectedUser(user)
+        setFormMode("edit")
+        setPageView("form")
+      }).catch(() => {})
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Client-side search filters the current page
   const filtered = useMemo(() => {

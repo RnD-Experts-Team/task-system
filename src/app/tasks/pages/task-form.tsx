@@ -52,6 +52,7 @@ import { useAllUsers } from "@/app/tasks/hooks/useAllUsers"
 // Subtasks section — full CRUD (edit mode: API-backed; create mode: local state)
 import { TaskSubtasksSection } from "@/app/tasks/components/task-subtasks-section"
 import type { LocalSubtaskInput } from "@/app/tasks/components/task-subtasks-section"
+import { usePermissions } from "@/hooks/usePermissions"
 
 // ─── Types ────────────────────────────────────────────────────────
 
@@ -109,6 +110,10 @@ export function TaskForm({ mode, initialData, defaultProjectId, defaultSectionId
   // ── Mutation hooks ─────────────────────────────────────────────
   const { createTask, submitting: creating, submitError: createError, clearSubmitError: clearCreateError } = useCreateTask()
   const { updateTask, submitting: updating, submitError: updateError, clearSubmitError: clearUpdateError } = useUpdateTask()
+
+  const { hasPermission } = usePermissions()
+  // Assignment UI is only rendered for users who can edit tasks
+  const canManageAssignments = hasPermission("edit tasks")
 
   // Combine submitting / error from whichever hook applies to the current mode
   const submitting = mode === "create" ? creating : updating
@@ -551,7 +556,9 @@ export function TaskForm({ mode, initialData, defaultProjectId, defaultSectionId
 
                 {/* User Assignments —
                     Create mode: rows collected locally, one bulk POST on save.
-                    Edit mode:   TaskAssignmentPanel handles all CRUD inline. */}
+                    Edit mode:   TaskAssignmentPanel handles all CRUD inline.
+                    Only rendered for users with "edit tasks" permission. */}
+                {canManageAssignments && (
                 <div className="md:col-span-2 space-y-3">
                   {mode === "edit" && initialData?.id ? (
                     /* Existing task — full assignment CRUD via the panel */
@@ -657,6 +664,7 @@ export function TaskForm({ mode, initialData, defaultProjectId, defaultSectionId
                     </>
                   )}
                 </div>
+                )}
 
               </div>
             </section>

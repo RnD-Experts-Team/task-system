@@ -13,6 +13,7 @@ import { HistoryIcon, ShieldCheckIcon, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { isCancel } from "axios"
 import { toast } from "sonner"
+import { DateInput } from "@/components/ui/date-input"
 import type { ClockRecordApiItem, ApiCorrectionType, PendingCorrectionApiItem } from "../data"
 import { clockingService } from "@/services/clockingService"
 
@@ -146,21 +147,41 @@ export function CorrectionRequestDialog({
           {/* ── Form ───────────────────────────────────────────── */}
           <form className="space-y-6" onSubmit={handleSubmit}>
 
-            {/* Correction type dropdown */}
-            <InputField label="Correction Type">
-              <select
-                value={correctionType}
-                onChange={(e) => {
-                  setCorrectionType(e.target.value as ApiCorrectionType)
-                  setBreakRecordId("") // reset break selection when type changes
-                }}
-                className="w-full border-none bg-transparent px-4 py-3.5 text-sm text-foreground outline-none"
-              >
-                {CORRECTION_TYPES.map((t) => (
-                  <option key={t.value} value={t.value} >{t.label}</option>
-                ))}
-              </select>
-            </InputField>
+            {/* Correction type selection */}
+            <div>
+              <label className="mb-2 block text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                Correction Type
+              </label>
+              <div className="grid grid-[auto-fit] sm:grid-cols-4 grid-cols-2 gap-3">
+                {CORRECTION_TYPES.map((t) => {
+                  const isSelected = correctionType === t.value
+                  return (
+                    <button
+                      key={t.value}
+                      type="button"
+                      onClick={() => {
+                        setCorrectionType(t.value)
+                        setBreakRecordId("")
+                      }}
+                      className={cn(
+                        "flex items-center justify-center rounded-xl border-2 px-3 py-3 text-xs font-bold transition-all duration-200",
+                        isSelected
+                          ? t.value === "clock_in"
+                            ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                            : t.value === "clock_out"
+                            ? "border-rose-500/50 bg-rose-500/10 text-rose-600 dark:text-rose-400"
+                            : t.value === "break_in"
+                            ? "border-amber-500/50 bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                            : "border-blue-500/50 bg-blue-500/10 text-blue-600 dark:text-blue-400"
+                          : "border-border/40 bg-muted/20 text-muted-foreground hover:border-border/80 hover:bg-muted/50"
+                      )}
+                    >
+                      {t.label}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
 
             {/* Break record selector — only visible for break_in / break_out */}
             {isBreakType && (
@@ -193,11 +214,10 @@ export function CorrectionRequestDialog({
             {/* Date + Time row */}
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
               <InputField label="Proposed Date">
-                <input
+                <DateInput
                   required
-                  type="date"
                   value={proposedDate}
-                  onChange={(e) => setProposedDate(e.target.value)}
+                  onChange={(e: any) => setProposedDate(e.target.value)}
                   className="w-full border-none bg-transparent px-4 py-3.5 text-sm text-foreground outline-none"
                 />
               </InputField>

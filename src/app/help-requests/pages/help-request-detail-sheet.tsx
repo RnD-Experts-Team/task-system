@@ -17,6 +17,8 @@ import { Pencil, HandHelping, X } from "lucide-react"
 // API types replacing the old mock-data types
 import type { HelpRequest } from "@/app/help-requests/types"
 import { getDisplayStatus, helpRequestRatingLabel } from "@/app/help-requests/types"
+import { usePermissions } from "@/hooks/usePermissions"
+import { useAuthStore } from "@/app/(auth)/stores/authStore"
 
 type HelpRequestDetailSheetProps = {
   request: HelpRequest | null
@@ -66,6 +68,11 @@ export function HelpRequestDetailSheet({
   onClaim,
   onUnclaim,
 }: HelpRequestDetailSheetProps) {
+  const { hasPermission } = usePermissions()
+  const currentUser = useAuthStore((s) => s.user)
+  const canEdit = hasPermission("edit help requests")
+  const isHelper = !!request && request.helper?.id === currentUser?.id
+
   if (!request) return null
 
   // Derive display status from API boolean flags
@@ -190,13 +197,13 @@ export function HelpRequestDetailSheet({
                 Claim Request
               </Button>
             )}
-            {request.helper && onUnclaim && (
+            {isHelper && onUnclaim && (
               <Button variant="outline" size="lg" className="flex-1" onClick={() => onUnclaim(request)}>
                 <X className="size-4" />
                 Unclaim Request
               </Button>
             )}
-            {onEdit && (
+            {canEdit && onEdit && (
               <Button variant="secondary" size="lg" className="flex-1" onClick={() => onEdit(request)}>
                 <Pencil className="size-4" />
                 Edit Request

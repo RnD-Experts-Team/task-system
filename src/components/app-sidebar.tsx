@@ -102,9 +102,50 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { hasRole, hasPermission } = usePermissions();
   const isAdmin = hasRole("admin");
 
-  const navMainItems = data.navMain.filter(
-    (item) => item.url !== "/users" || isAdmin || hasPermission("view users")
-  );
+  const navMainItems = data.navMain.filter((item) => {
+    if (item.url === "/users") return isAdmin || hasPermission("view users")
+    if (item.url === "/roles") return isAdmin || hasPermission("view roles")
+    return true
+  })
+
+  // Filter collateral nav items based on permissions
+  const navCollapsibleItems = data.navCollapsible
+    .map((section) => {
+      if (section.title === "Ratings") {
+        return {
+          ...section,
+          items: section.items.filter((item) => {
+            if (item.url === "/ratings/configurations") {
+              return isAdmin || hasPermission("view rating configs")
+            }
+            if (item.url === "/ratings") {
+              // Requires EITHER create task ratings OR create stakeholder ratings
+              return isAdmin || hasPermission("create task ratings") || hasPermission("create stakeholder ratings")
+            }
+            if (item.url === "/ratings/final-ratings") {
+              return isAdmin || hasPermission("calculate final ratings")
+            }
+            if (item.url === "/ratings/weighted-ratings") {
+              return isAdmin || hasPermission("calculate final ratings")
+            }
+            return true
+          }),
+        }
+      }
+      if (section.title === "Clocking") {
+        return {
+          ...section,
+          items: section.items.filter((item) => {
+            if (item.url === "/clocking/sessions") {
+              return isAdmin || hasPermission("view all clocking sessions")
+            }
+            return true
+          }),
+        }
+      }
+      return section
+    })
+    .filter((section) => section.items.length > 0)
 
   return (
     <Sidebar collapsible="offcanvas" {...props}>
@@ -132,7 +173,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       {/* Main Navigation Content */}
       <SidebarContent className="px-2 py-4">
         <NavMain items={navMainItems} />
-        <NavCollapsible items={data.navCollapsible} />
+        <NavCollapsible items={navCollapsibleItems} />
       </SidebarContent>
 
       {/* Account Section + Logout Footer */}

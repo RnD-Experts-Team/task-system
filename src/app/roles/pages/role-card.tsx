@@ -9,17 +9,21 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { MoreHorizontal, Pencil, Trash2, Calendar } from "lucide-react"
 import { useTilt } from "@/hooks/use-tilt"
+import { usePermissions } from "@/hooks/usePermissions"
 import type { Role } from "@/types"
 
 type RoleCardProps = {
   role: Role
   onSelect: (role: Role) => void
-  onEdit: (role: Role) => void
-  onDelete: (role: Role) => void
+  onEdit?: (role: Role) => void
+  onDelete?: (role: Role) => void
 }
 
 export function RoleCard({ role, onSelect, onEdit, onDelete }: RoleCardProps) {
   const { ref, style } = useTilt<HTMLDivElement>({ maxTilt: 5, scale: 1.015 })
+  const { hasPermission } = usePermissions()
+  const canViewPermissions = hasPermission("view permissions")
+  const showMenu = !!onEdit || !!onDelete
 
   return (
     <Card ref={ref} style={style} className="flex flex-col">
@@ -29,27 +33,35 @@ export function RoleCard({ role, onSelect, onEdit, onDelete }: RoleCardProps) {
             <Badge variant="outline" className="text-[10px]">
               {role.guard_name}
             </Badge>
-            <Badge variant="secondary" className="text-[10px]">
-              {role.permissions.length} perm{role.permissions.length !== 1 ? "s" : ""}
-            </Badge>
+            {canViewPermissions && (
+              <Badge variant="secondary" className="text-[10px]">
+                {role.permissions.length} perm{role.permissions.length !== 1 ? "s" : ""}
+              </Badge>
+            )}
           </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon-xs">
-                <MoreHorizontal className="size-3.5" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => onEdit(role)}>
-                <Pencil className="size-4" />
-                Edit
-              </DropdownMenuItem>
-              <DropdownMenuItem variant="destructive" onClick={() => onDelete(role)}>
-                <Trash2 className="size-4" />
-                Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {showMenu && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon-xs">
+                  <MoreHorizontal className="size-3.5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {onEdit && (
+                  <DropdownMenuItem onClick={() => onEdit(role)}>
+                    <Pencil className="size-4" />
+                    Edit
+                  </DropdownMenuItem>
+                )}
+                {onDelete && (
+                  <DropdownMenuItem variant="destructive" onClick={() => onDelete(role)}>
+                    <Trash2 className="size-4" />
+                    Delete
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
 
         <div className="flex flex-col gap-1">
@@ -71,15 +83,21 @@ export function RoleCard({ role, onSelect, onEdit, onDelete }: RoleCardProps) {
         </div>
       </CardContent>
 
-      <CardFooter className="flex items-center gap-3 w-full mt-auto">
-        <Button variant="secondary" size="lg" className="flex-1 py-2" onClick={() => onEdit(role)}>
-          <Pencil className="size-3.5" />
-          Edit
-        </Button>
-        <Button variant="destructive" size="icon-lg" onClick={() => onDelete(role)}>
-          <Trash2 className="size-3.5" />
-        </Button>
-      </CardFooter>
+      {(onEdit || onDelete) && (
+        <CardFooter className="flex items-center gap-3 w-full mt-auto">
+          {onEdit && (
+            <Button variant="secondary" size="lg" className="flex-1 py-2" onClick={() => onEdit(role)}>
+              <Pencil className="size-3.5" />
+              Edit
+            </Button>
+          )}
+          {onDelete && (
+            <Button variant="destructive" size="icon-lg" onClick={() => onDelete(role)}>
+              <Trash2 className="size-3.5" />
+            </Button>
+          )}
+        </CardFooter>
+      )}
     </Card>
   )
 }

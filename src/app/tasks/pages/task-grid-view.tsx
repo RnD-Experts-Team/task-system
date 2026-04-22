@@ -8,9 +8,12 @@ type TaskGridViewProps = {
   onEdit: (task: Task) => void
   onDelete: (task: Task) => void
   onRate: (task: Task) => void
+  canEdit: boolean
+  canDelete: boolean
+  canRate: boolean
 }
 
-export function TaskGridView({ tasks, onSelect, onEdit, onDelete, onRate }: TaskGridViewProps) {
+export function TaskGridView({ tasks, onSelect, onEdit, onDelete, onRate, canEdit, canDelete, canRate }: TaskGridViewProps) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-4 gap-4">
       {tasks.map((task) => (
@@ -21,6 +24,9 @@ export function TaskGridView({ tasks, onSelect, onEdit, onDelete, onRate }: Task
           onEdit={onEdit}
           onDelete={onDelete}
           onRate={onRate}
+          canEdit={canEdit}
+          canDelete={canDelete}
+          canRate={canRate}
         />
       ))}
     </div>

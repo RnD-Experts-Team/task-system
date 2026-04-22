@@ -44,6 +44,8 @@ import { useHelpRequestMutations } from "@/app/help-requests/hooks/useHelpReques
 import { AssignHelpRequestDialog } from "@/app/help-requests/pages/assign-help-request-dialog"
 import { CompleteHelpRequestDialog } from "@/app/help-requests/pages/complete-help-request-dialog"
 import { ConfirmDeleteHelpRequestDialog } from "@/app/help-requests/pages/confirm-delete-help-request-dialog"
+import { usePermissions } from "@/hooks/usePermissions"
+import { useAuthStore } from "@/app/(auth)/stores/authStore"
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -136,6 +138,13 @@ export default function HelpRequestDetailPage() {
   const { id } = useParams<{ id: string }>()
   const requestId = id ? parseInt(id, 10) : null
   const navigate = useNavigate()
+
+  // Permission checks
+  const { hasPermission } = usePermissions()
+  const currentUser = useAuthStore((s) => s.user)
+  const canEdit   = hasPermission("edit help requests")
+  const canCreate = hasPermission("create help requests")
+  const canDelete = hasPermission("delete help requests")
 
   // Fetch GET /help-requests/{id} via the useHelpRequest hook
   const { request, loading, error } = useHelpRequest(requestId)
@@ -278,19 +287,21 @@ export default function HelpRequestDetailPage() {
       {/* ── Action buttons ────────────────────────────────────────────────────── */}
       {/* Row of contextual action buttons for the three new endpoints */}
       <div className="flex flex-wrap gap-2">
-        {/* Assign — POST /help-requests/{id}/assign/{userId} */}
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setAssignOpen(true)}
-          disabled={request.is_completed}
-        >
-          <UserCheck className="size-4" />
-          Assign
-        </Button>
+        {/* Assign — requires edit or create help requests permission */}
+        {(canEdit || canCreate) && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setAssignOpen(true)}
+            disabled={request.is_completed}
+          >
+            <UserCheck className="size-4" />
+            Assign
+          </Button>
+        )}
 
-        {/* Complete — POST /help-requests/{id}/complete (hidden when already completed) */}
-        {!request.is_completed && (
+        {/* Complete — only for the current helper when not yet completed */}
+        {request.helper?.id === currentUser?.id && !request.is_completed && (
           <Button
             variant="outline"
             size="sm"
@@ -302,14 +313,16 @@ export default function HelpRequestDetailPage() {
         )}
 
         {/* Delete — DELETE /help-requests/{id} with confirmation dialog */}
-        <Button
-          variant="destructive"
-          size="sm"
-          onClick={() => setDeleteOpen(true)}
-        >
-          <Trash2 className="size-4" />
-          Delete
-        </Button>
+        {canDelete && (
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={() => setDeleteOpen(true)}
+          >
+            <Trash2 className="size-4" />
+            Delete
+          </Button>
+        )}
       </div>
 
       {/* ── Metadata grid (4 stat cards) ─────────────────────────────────────── */}

@@ -35,6 +35,7 @@ import {
 import { Pagination } from "@/components/pagination"
 import { usePagination } from "@/hooks/use-pagination"
 import InlineStats from "@/components/inline-stats"
+import { usePermissions } from "@/hooks/usePermissions"
 
 // ── API hooks ────────────────────────────────────────────────────────────────
 import { useFinalRatingConfigs } from "@/app/ratings/final-ratings/hooks/useFinalRatingConfigs"
@@ -181,6 +182,11 @@ function UserRatingCard({ result, rank }: { result: FinalRatingUserResult; rank:
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function FinalRatingsPage() {
+  const { hasPermission } = usePermissions()
+  const canCreateConfig = hasPermission("create rating configs")
+  const canEditConfig = hasPermission("edit rating configs")
+  const canDeleteConfig = hasPermission("delete rating configs")
+  
   // ── API hooks ──────────────────────────────────────────────────
   const { configs, loading, error, refetch, clearError } = useFinalRatingConfigs()
   const {
@@ -716,14 +722,16 @@ export default function FinalRatingsPage() {
             <BookOpen className="size-3.5" />
             Default Structure
           </Button>
-          <Button
-            size="sm"
-            className="transition-all hover:shadow-md hover:shadow-primary/25"
-            onClick={handleCreate}
-          >
-            <Plus className="size-3.5" />
-            New Configuration
-          </Button>
+          {canCreateConfig && (
+            <Button
+              size="sm"
+              className="transition-all hover:shadow-md hover:shadow-primary/25"
+              onClick={handleCreate}
+            >
+              <Plus className="size-3.5" />
+              New Configuration
+            </Button>
+          )}
         </div>
       </div>
 
@@ -756,7 +764,7 @@ export default function FinalRatingsPage() {
                     : "Create your first configuration to get started."}
                 </p>
               </div>
-              {!search && (
+              {!search && canCreateConfig && (
                 <Button variant="outline" size="sm" onClick={handleCreate}>
                   <Plus className="size-3.5" />
                   New Configuration
@@ -769,8 +777,8 @@ export default function FinalRatingsPage() {
             <FinalRatingConfigTable
               configs={paged}
               onView={handleView}
-              onEdit={handleEdit}
-              onDelete={handleDelete}
+              onEdit={canEditConfig ? handleEdit : undefined}
+              onDelete={canDeleteConfig ? handleDelete : undefined}
             />
           )}
         </CardContent>
@@ -790,7 +798,8 @@ export default function FinalRatingsPage() {
         configId={detailConfigId}
         open={detailOpen}
         onOpenChange={setDetailOpen}
-        onEdit={handleEdit}
+        onEdit={canEditConfig ? handleEdit : undefined}
+        onDelete={canDeleteConfig ? handleDelete : undefined}
       />
 
       {/* ── Form Sheet ───────────────────────────────────────────── */}

@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/sheet"
 import {
   Pencil,
+  Trash2,
   Calendar,
   Clock,
   CheckCircle2,
@@ -96,7 +97,8 @@ type FinalRatingConfigDetailSheetProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   /** Callback to open the edit sheet for this config */
-  onEdit: (config: ApiFinalRatingConfig) => void
+  onEdit?: (config: ApiFinalRatingConfig) => void
+  onDelete?: (config: ApiFinalRatingConfig) => void
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -106,6 +108,7 @@ export function FinalRatingConfigDetailSheet({
   open,
   onOpenChange,
   onEdit,
+  onDelete,
 }: FinalRatingConfigDetailSheetProps) {
   // Calls GET /final-ratings/configs/{id} when configId is non-null
   const { config, loading, error } = useFinalRatingConfig(open ? configId : null)
@@ -158,17 +161,34 @@ export function FinalRatingConfigDetailSheet({
                   <Badge variant="secondary">Inactive</Badge>
                 )}
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  onOpenChange(false)
-                  onEdit(config)
-                }}
-              >
-                <Pencil className="size-3.5" />
-                Edit
-              </Button>
+              <div className="flex items-center gap-2">
+                {onEdit && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      onOpenChange(false)
+                      onEdit(config)
+                    }}
+                  >
+                    <Pencil className="size-3.5" />
+                    Edit
+                  </Button>
+                )}
+                {onDelete && (
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => {
+                      onOpenChange(false)
+                      onDelete(config)
+                    }}
+                  >
+                    <Trash2 className="size-3.5" />
+                    Delete
+                  </Button>
+                )}
+              </div>
             </div>
 
             {/* Name + description */}

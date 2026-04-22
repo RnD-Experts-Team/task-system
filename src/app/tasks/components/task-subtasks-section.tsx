@@ -83,6 +83,7 @@ import type { Subtask, TaskPriority, TaskPagination } from "@/app/tasks/types"
 import type { ApiValidationError } from "@/types"
 import { normalizeHtmlForSubmit } from "@/lib/html"
 import showToast from "@/lib/toast"
+import { usePermissions } from "@/hooks/usePermissions"
 
 // ─── Local Types ─────────────────────────────────────────────────
 
@@ -585,6 +586,15 @@ export function TaskSubtasksSection({
   onChange,
 }: TaskSubtasksSectionProps) {
 
+  const { hasPermission } = usePermissions()
+  const canViewSubtasks   = hasPermission("view subtasks")
+  const canCreateSubtasks = hasPermission("create subtasks")
+  const canEditSubtasks   = hasPermission("edit subtasks")
+  const canDeleteSubtasks = hasPermission("delete subtasks")
+
+  // If the user cannot view subtasks, render nothing
+  if (!canViewSubtasks) return null
+
   // ── EDIT MODE state ───────────────────────────────────────────
   // Subtask list fetched from the API (edit mode only)
   const [subtasks, setSubtasks] = useState<Subtask[]>([])
@@ -899,8 +909,8 @@ export function TaskSubtasksSection({
               </div>
             )}
 
-            {/* Add button */}
-            {!isAdding && (
+            {/* Add button — only for users with create subtasks permission */}
+            {!isAdding && canCreateSubtasks && (
               <Button
                 type="button"
                 variant="outline"
@@ -1076,7 +1086,8 @@ export function TaskSubtasksSection({
                               <Eye className="size-3.5" />
                             </Button>
 
-                            {/* Edit — expands inline edit form */}
+                            {/* Edit — only for users with edit subtasks permission */}
+                            {canEditSubtasks && (
                             <Button
                               type="button"
                               variant="ghost"
@@ -1093,8 +1104,10 @@ export function TaskSubtasksSection({
                             >
                               <Pencil className="size-3.5" />
                             </Button>
+                            )}
 
-                            {/* Delete — opens confirmation dialog */}
+                            {/* Delete — only for users with delete subtasks permission */}
+                            {canDeleteSubtasks && (
                             <Button
                               type="button"
                               variant="ghost"
@@ -1106,6 +1119,7 @@ export function TaskSubtasksSection({
                             >
                               <Trash2 className="size-3.5" />
                             </Button>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>
@@ -1200,7 +1214,8 @@ export function TaskSubtasksSection({
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-1">
-                            {/* Edit local entry */}
+                            {/* Edit local entry — only for users with edit subtasks permission */}
+                            {canEditSubtasks && (
                             <Button
                               type="button"
                               variant="ghost"
@@ -1211,7 +1226,9 @@ export function TaskSubtasksSection({
                             >
                               <Pencil className="size-3.5" />
                             </Button>
-                            {/* Remove local entry — confirmation dialog */}
+                            )}
+                            {/* Remove local entry — only for users with delete subtasks permission */}
+                            {canDeleteSubtasks && (
                             <Button
                               type="button"
                               variant="ghost"
@@ -1223,6 +1240,7 @@ export function TaskSubtasksSection({
                             >
                               <Trash2 className="size-3.5" />
                             </Button>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>

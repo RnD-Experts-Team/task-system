@@ -26,6 +26,7 @@ import { ProjectDetailSheet } from "./components/project-detail-sheet"
 import { ConfirmDeleteDialog } from "./components/confirm-delete-dialog"
 import type { Project, ProjectStatus } from "./types"
 import { projectKanbanPath } from "./utils/project-routes"
+import { usePermissions } from "@/hooks/usePermissions"
 
 type ViewMode = "table" | "grid"
 
@@ -40,6 +41,10 @@ const statusOptions: { value: ProjectStatus | "all"; label: string }[] = [
 // Page composition — wires hooks, state, and UI components together
 export default function ProjectsPage() {
   const navigate = useNavigate()
+  const { hasPermission } = usePermissions()
+  const canCreate = hasPermission("create projects")
+  const canEdit = hasPermission("edit projects")
+  const canDelete = hasPermission("delete projects")
 
   // Data hooks
   const { projects, loading, error, refetch } = useProjects()
@@ -173,6 +178,7 @@ export default function ProjectsPage() {
               className="transition-all hover:shadow-md hover:shadow-primary/25"
               size="lg"
               onClick={handleCreate}
+              hidden={!canCreate}
             >
               <Plus />
               New Project
@@ -239,10 +245,12 @@ export default function ProjectsPage() {
         {filtered.length === 0 ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-4 py-16">
             <p className="text-muted-foreground">No projects found.</p>
-            <Button variant="outline" onClick={handleCreate}>
-              <Plus className="size-4" />
-              Create your first project
-            </Button>
+            {canCreate && (
+              <Button variant="outline" onClick={handleCreate}>
+                <Plus className="size-4" />
+                Create your first project
+              </Button>
+            )}
           </div>
         ) : (
           <>
@@ -254,6 +262,8 @@ export default function ProjectsPage() {
                 onDelete={handleDeleteClick}
                 onSelect={handleSelect}
                 onViewPage={handleViewPage}
+                canEdit={canEdit}
+                canDelete={canDelete}
               />
             ) : (
               <ProjectGridView
@@ -262,6 +272,8 @@ export default function ProjectsPage() {
                 onDelete={handleDeleteClick}
                 onSelect={handleSelect}
                 onViewPage={handleViewPage}
+                canEdit={canEdit}
+                canDelete={canDelete}
               />
             )}
 

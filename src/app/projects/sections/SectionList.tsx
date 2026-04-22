@@ -10,6 +10,7 @@ import { AlertCircle, Plus } from "lucide-react"
 import { SectionCard } from "./SectionCard"
 import { SectionForm, type SectionFormValues } from "./SectionForm"
 import type { Section, CreateSectionPayload, UpdateSectionPayload } from "./types"
+import { usePermissions } from "@/hooks/usePermissions"
 
 type SectionListProps = {
   sections: Section[]
@@ -32,6 +33,10 @@ export function SectionList({
   onUpdateSection,
   onDeleteSection,
 }: SectionListProps) {
+  const { hasPermission } = usePermissions()
+  const canCreate = hasPermission("create sections")
+  const canEdit = hasPermission("edit sections")
+  const canDelete = hasPermission("delete sections")
   // State for the create/edit dialog
   const [formOpen, setFormOpen] = useState(false)
   const [editingSection, setEditingSection] = useState<Section | null>(null)
@@ -113,19 +118,23 @@ export function SectionList({
             onEdit={handleEdit}
             onDelete={handleDelete}
             submitting={submitting}
+            canEdit={canEdit}
+            canDelete={canDelete}
           />
         ))
       )}
 
       {/* Create section button */}
-      <Button
-        variant="outline"
-        className="w-full gap-1.5"
-        onClick={handleCreate}
-      >
-        <Plus className="size-4" />
-        Add Section
-      </Button>
+      {canCreate && (
+        <Button
+          variant="outline"
+          className="w-full gap-1.5"
+          onClick={handleCreate}
+        >
+          <Plus className="size-4" />
+          Add Section
+        </Button>
+      )}
 
       {/* Create / Edit section dialog */}
       <SectionForm

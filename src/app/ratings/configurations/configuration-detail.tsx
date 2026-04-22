@@ -23,6 +23,7 @@ import {
 } from "lucide-react"
 // Hook fetches GET /rating-configs/{id} from the store
 import { useRatingConfig } from "@/app/ratings/configurations/hooks/useRatingConfig"
+import { usePermissions } from "@/hooks/usePermissions"
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -59,6 +60,8 @@ export function ConfigurationDetailSheet({
   onOpenChange,
 }: ConfigurationDetailSheetProps) {
   const navigate = useNavigate()
+  const { hasPermission } = usePermissions()
+  const canEdit = hasPermission("edit rating configs")
 
   // Fetch the config from GET /rating-configs/{id} via the store.
   // Pass null when sheet is closed to skip unnecessary fetches.
@@ -152,19 +155,21 @@ export function ConfigurationDetailSheet({
 
             <div className="flex flex-col gap-5 px-6 py-4">
               {/* Edit button */}
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={() => {
-                  onOpenChange(false)
-                  navigate(
-                    `/ratings/configurations/${config.id}/edit`
-                  )
-                }}
-              >
-                <Pencil className="size-3.5" />
-                Edit Configuration
-              </Button>
+              {canEdit && (
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => {
+                    onOpenChange(false)
+                    navigate(
+                      `/ratings/configurations/${config.id}/edit`
+                    )
+                  }}
+                >
+                  <Pencil className="size-3.5" />
+                  Edit Configuration
+                </Button>
+              )}
 
               {/* Rating Fields — live inside config_data.fields (API shape) */}
               <div className="space-y-3">

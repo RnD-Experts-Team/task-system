@@ -14,6 +14,8 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { MoreHorizontal, Pencil, Trash2, Calendar, HandHelping, X, UserCheck, CheckCircle2 } from "lucide-react"
 import { useTilt } from "@/hooks/use-tilt"
+import { usePermissions } from "@/hooks/usePermissions"
+import { useAuthStore } from "@/app/(auth)/stores/authStore"
 // API types replacing the old mock-data types
 import type { HelpRequest } from "@/app/help-requests/types"
 import { getDisplayStatus, helpRequestRatingLabel } from "@/app/help-requests/types"
@@ -74,6 +76,14 @@ export function HelpRequestCard({
   onComplete,
 }: HelpRequestCardProps) {
   const { ref, style } = useTilt<HTMLDivElement>({ maxTilt: 5, scale: 1.015 })
+  const { hasPermission } = usePermissions()
+  const currentUser = useAuthStore((s) => s.user)
+  const canView   = hasPermission("view help requests")
+  const canEdit   = hasPermission("edit help requests")
+  const canCreate = hasPermission("create help requests")
+  const canDelete = hasPermission("delete help requests")
+  const showMenu  = canView || canEdit || canDelete
+  const isHelper  = request.helper?.id === currentUser?.id
   // Compute display status from API boolean flags
   const status = getDisplayStatus(request)
 
@@ -85,47 +95,57 @@ export function HelpRequestCard({
           <Badge variant={statusVariant[status] ?? "outline"} className="text-[10px]">
             {statusLabel[status] ?? status}
           </Badge>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon-xs">
-                <MoreHorizontal className="size-3.5" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => onEdit(request)}>
-                <Pencil className="size-4" />
-                Edit
-              </DropdownMenuItem>
-              {!request.helper ? (
-                <DropdownMenuItem onClick={() => onClaim(request)}>
-                  <HandHelping className="size-4" />
-                  Claim
-                </DropdownMenuItem>
-              ) : (
-                <DropdownMenuItem onClick={() => onUnclaim(request)}>
-                  <X className="size-4" />
-                  Unclaim
-                </DropdownMenuItem>
-              )}
-              {/* Assign — opens dialog to pick a helper user */}
-              <DropdownMenuItem onClick={() => onAssign(request)}>
-                <UserCheck className="size-4" />
-                Assign
-              </DropdownMenuItem>
-              {/* Complete — only when not yet completed */}
-              {!request.is_completed && (
-                <DropdownMenuItem onClick={() => onComplete(request)}>
-                  <CheckCircle2 className="size-4" />
-                  Complete
-                </DropdownMenuItem>
-              )}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem variant="destructive" onClick={() => onDelete(request)}>
-                <Trash2 className="size-4" />
-                Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {showMenu && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon-xs">
+                  <MoreHorizontal className="size-3.5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {canEdit && (
+                  <DropdownMenuItem onClick={() => onEdit(request)}>
+                    <Pencil className="size-4" />
+                    Edit
+                  </DropdownMenuItem>
+                )}
+                {!request.helper ? (
+                  <DropdownMenuItem onClick={() => onClaim(request)}>
+                    <HandHelping className="size-4" />
+                    Claim
+                  </DropdownMenuItem>
+                ) : isHelper ? (
+                  <DropdownMenuItem onClick={() => onUnclaim(request)}>
+                    <X className="size-4" />
+                    Unclaim
+                  </DropdownMenuItem>
+                ) : null}
+                {/* Assign — requires edit or create help requests permission */}
+                {(canEdit || canCreate) && (
+                  <DropdownMenuItem onClick={() => onAssign(request)}>
+                    <UserCheck className="size-4" />
+                    Assign
+                  </DropdownMenuItem>
+                )}
+                {/* Complete — only for the current helper when not yet completed */}
+                {isHelper && !request.is_completed && (
+                  <DropdownMenuItem onClick={() => onComplete(request)}>
+                    <CheckCircle2 className="size-4" />
+                    Complete
+                  </DropdownMenuItem>
+                )}
+                {canDelete && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem variant="destructive" onClick={() => onDelete(request)}>
+                      <Trash2 className="size-4" />
+                      Delete
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
 
         {/* Description */}
@@ -178,22 +198,26 @@ export function HelpRequestCard({
       </CardContent>
 
       <CardFooter className="flex items-center gap-3 w-full mt-auto">
-        <Button variant="secondary" size="lg" className="flex-1 py-2" onClick={() => onEdit(request)}>
-          <Pencil className="size-3.5" />
-          Edit
-        </Button>
+        {canEdit && (
+          <Button variant="secondary" size="lg" className="flex-1 py-2" onClick={() => onEdit(request)}>
+            <Pencil className="size-3.5" />
+            Edit
+          </Button>
+        )}
         {!request.helper ? (
           <Button variant="outline" size="icon-lg" onClick={() => onClaim(request)}>
             <HandHelping className="size-3.5" />
           </Button>
-        ) : (
+        ) : isHelper ? (
           <Button variant="outline" size="icon-lg" onClick={() => onUnclaim(request)}>
             <X className="size-3.5" />
           </Button>
+        ) : null}
+        {canDelete && (
+          <Button variant="destructive" size="icon-lg" onClick={() => onDelete(request)}>
+            <Trash2 className="size-3.5" />
+          </Button>
         )}
-        <Button variant="destructive" size="icon-lg" onClick={() => onDelete(request)}>
-          <Trash2 className="size-3.5" />
-        </Button>
       </CardFooter>
     </Card>
   )

@@ -41,11 +41,13 @@ type SectionCardProps = {
   onDelete: (section: Section) => void
   /** True while a section-level mutation (create/update/delete section) is in flight */
   submitting?: boolean
+  canEdit?: boolean
+  canDelete?: boolean
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
-export function SectionCard({ section, onEdit, onDelete, submitting }: SectionCardProps) {
+export function SectionCard({ section, onEdit, onDelete, submitting, canEdit = false, canDelete = false }: SectionCardProps) {
   const navigate = useNavigate()
 
   // Fetch this section's tasks from the tasks-with-assignments endpoint.
@@ -137,6 +139,11 @@ export function SectionCard({ section, onEdit, onDelete, submitting }: SectionCa
     navigate(`/tasks/${taskId}`)
   }
 
+  /** Navigate to the task rating page */
+  function handleRateTask(taskId: number) {
+    navigate(`/ratings/tasks/${taskId}/rate`)
+  }
+
   // ─── Render ───────────────────────────────────────────────────────────────
 
   return (
@@ -157,6 +164,8 @@ export function SectionCard({ section, onEdit, onDelete, submitting }: SectionCa
               onEdit={onEdit}
               onDelete={onDelete}
               submitting={submitting}
+              canEdit={canEdit}
+              canDelete={canDelete}
             />
           </div>
         </CardHeader>
@@ -172,6 +181,7 @@ export function SectionCard({ section, onEdit, onDelete, submitting }: SectionCa
             onEdit={handleEditTask}
             onDelete={handleDeleteTaskClick}
             onView={handleViewTask}
+            onRate={handleRateTask}
           />
         </CardContent>
       </Card>

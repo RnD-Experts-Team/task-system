@@ -30,10 +30,12 @@ type ProjectTableViewProps = {
   onDelete: (project: Project) => void
   onSelect: (project: Project) => void
   onViewPage: (project: Project) => void
+  canEdit?: boolean
+  canDelete?: boolean
 }
 
 // Table view for the project list
-export function ProjectTableView({ projects, onEdit, onDelete, onSelect, onViewPage }: ProjectTableViewProps) {
+export function ProjectTableView({ projects, onEdit, onDelete, onSelect, onViewPage, canEdit = false, canDelete = false }: ProjectTableViewProps) {
   return (
     <div className="overflow-x-auto">
       <Table>
@@ -139,17 +141,21 @@ export function ProjectTableView({ projects, onEdit, onDelete, onSelect, onViewP
                       <LayoutGrid className="size-4" />
                       Open Kanban
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => onEdit(project)}>
-                      <Pencil className="size-4" />
-                      Edit
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      variant="destructive"
-                      onClick={() => onDelete(project)}
-                    >
-                      <Trash2 className="size-4" />
-                      Delete
-                    </DropdownMenuItem>
+                    {canEdit && (
+                      <DropdownMenuItem onClick={() => onEdit(project)}>
+                        <Pencil className="size-4" />
+                        Edit
+                      </DropdownMenuItem>
+                    )}
+                    {canDelete && (
+                      <DropdownMenuItem
+                        variant="destructive"
+                        onClick={() => onDelete(project)}
+                      >
+                        <Trash2 className="size-4" />
+                        Delete
+                      </DropdownMenuItem>
+                    )}
                   </DropdownMenuContent>
                 </DropdownMenu>
               </TableCell>

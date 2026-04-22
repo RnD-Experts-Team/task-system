@@ -34,6 +34,8 @@ import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip
 import { taskService } from "@/app/tasks/services/taskService"
 import type { TaskComment } from "@/app/tasks/types"
 import type { ApiValidationError } from "@/types"
+import { usePermissions } from "@/hooks/usePermissions"
+import { useAuthStore } from "@/app/(auth)/stores/authStore"
 
 // ─── Helpers ─────────────────────────────────────────────────────
 
@@ -96,6 +98,15 @@ interface TaskCommentsSectionProps {
 // ─── Main Component ───────────────────────────────────────────────
 
 export function TaskCommentsSection({ taskId, initialComments = [] }: TaskCommentsSectionProps) {
+  const { hasPermission } = usePermissions()
+  const currentUserId = useAuthStore((s) => s.user?.id)
+  // Any authenticated user can add comments.
+  // Comment owners can always edit or delete their own comments.
+  // Users with "create tasks" can modify any comment.
+  const canCreateComment = currentUserId !== undefined
+  function canModifyComment(comment: TaskComment): boolean {
+    return hasPermission("create tasks") || (currentUserId !== undefined && comment.user_id === currentUserId)
+  }
   // ── Local comment list (accumulated from API responses, initialized with server data) ───────
   // When task is loaded, initialComments from GET /tasks/{id} populates this state
   // New comments created via POST are prepended; edited/deleted comments update this state
@@ -238,8 +249,8 @@ export function TaskCommentsSection({ taskId, initialComments = [] }: TaskCommen
 
         <CardContent className="space-y-5">
           {/* ── Add new comment form ── */}
-          {/* Textarea with character counter and submit button */}
-          {/* Disabled while loading; clear button shown only when has content */}
+          {/* Only visible to users with create tasks permission */}
+          {canCreateComment && (
           <div className="space-y-2">
             <Textarea
               placeholder="Write a comment… (max 5000 characters)"
@@ -270,6 +281,7 @@ export function TaskCommentsSection({ taskId, initialComments = [] }: TaskCommen
             {/* Inline error for add failures */}
             {addError && <InlineError message={addError} />}
           </div>
+          )}
 
           {/* ── Comments table / list ── */}
           {/* Shows "no comments" message OR a responsive table with comments */}
@@ -431,8 +443,8 @@ export function TaskCommentsSection({ taskId, initialComments = [] }: TaskCommen
                                 <X className="size-3.5" />
                               </Button>
                             </div>
-                          ) : (
-                            // Normal Edit / Delete buttons
+                          ) : canModifyComment(comment) ? (
+                            // Normal Edit / Delete buttons — only for owner or create tasks
                             <div className="flex items-center justify-end gap-1">
                               <Button
                                 size="icon"
@@ -456,7 +468,7 @@ export function TaskCommentsSection({ taskId, initialComments = [] }: TaskCommen
                                 <Trash2 className="size-3.5" />
                               </Button>
                             </div>
-                          )}
+                          ) : null}
                         </td>
                       </tr>
                     )

@@ -20,6 +20,9 @@ type TaskCardProps = {
   onEdit: (task: Task) => void
   onDelete: (task: Task) => void
   onRate: (task: Task) => void
+  canEdit: boolean
+  canDelete: boolean
+  canRate: boolean
 }
 
 function getInitials(name: string) {
@@ -121,7 +124,7 @@ function SubtasksProgress({
   )
 }
 
-export function TaskCard({ task, onSelect, onEdit, onDelete, onRate }: TaskCardProps) {
+export function TaskCard({ task, onSelect, onEdit, onDelete, onRate, canEdit, canDelete, canRate }: TaskCardProps) {
   const { ref, style } = useTilt<HTMLDivElement>({ maxTilt: 5, scale: 1.015 })
 
   // Count completed subtasks using the API field is_complete
@@ -144,6 +147,7 @@ export function TaskCard({ task, onSelect, onEdit, onDelete, onRate }: TaskCardP
               {task.priority}
             </Badge>
           </div>
+          {(canEdit || canDelete || canRate) && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon-sm" className="opacity-0 group-hover:opacity-100 transition-opacity">
@@ -155,20 +159,27 @@ export function TaskCard({ task, onSelect, onEdit, onDelete, onRate }: TaskCardP
                 <Eye className="size-4" />
                 View Details
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onRate(task)}>
-                <Star className="size-4" />
-                Rate
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onEdit(task)}>
-                <Pencil className="size-4" />
-                Edit
-              </DropdownMenuItem>
-              <DropdownMenuItem variant="destructive" onClick={() => onDelete(task)}>
-                <Trash2 className="size-4" />
-                Delete
-              </DropdownMenuItem>
+              {canRate && (
+                <DropdownMenuItem onClick={() => onRate(task)}>
+                  <Star className="size-4" />
+                  Rate
+                </DropdownMenuItem>
+              )}
+              {canEdit && (
+                <DropdownMenuItem onClick={() => onEdit(task)}>
+                  <Pencil className="size-4" />
+                  Edit
+                </DropdownMenuItem>
+              )}
+              {canDelete && (
+                <DropdownMenuItem variant="destructive" onClick={() => onDelete(task)}>
+                  <Trash2 className="size-4" />
+                  Delete
+                </DropdownMenuItem>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
+          )}
         </div>
 
         {/* Title + Project */}

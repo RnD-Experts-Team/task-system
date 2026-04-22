@@ -6,6 +6,7 @@ import { Separator } from "@/components/ui/separator"
 import { Edit, Eye, CheckCheck, Rocket, HelpCircle, Ticket } from "lucide-react"
 import EmptyState from "./EmptyState"
 import { cn } from "@/lib/utils"
+import { useNavigate } from "react-router"
 import { useAuthStore } from "@/app/(auth)/stores/authStore"
 import type { EmployeeData, RecentActivity } from "@/types"
 
@@ -35,6 +36,7 @@ export default function RightOverviewPanel({
   variant?: "aside" | "card" | "developer"
   employee?: EmployeeData | null
 }) {
+  const navigate = useNavigate()
   const user = useAuthStore((s) => s.user)
   const initials =
     user?.name
@@ -64,10 +66,22 @@ export default function RightOverviewPanel({
             <p className="text-xs text-muted-foreground mt-0.5">{user?.email ?? ""}</p>
           </div>
           <div className="flex gap-2">
-            <Button variant="ghost" size="icon" className="size-8 rounded-full" aria-label="Edit profile">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-8 rounded-full"
+              aria-label="Edit profile"
+              onClick={() => navigate("/users", { state: { editUserId: String(user?.id) } })}
+            >
               <Edit className="size-3.5" />
             </Button>
-            <Button variant="ghost" size="icon" className="size-8 rounded-full" aria-label="View profile">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-8 rounded-full"
+              aria-label="View profile"
+              onClick={() => navigate("/users", { state: { openUserId: String(user?.id) } })}
+            >
               <Eye className="size-3.5" />
             </Button>
           </div>

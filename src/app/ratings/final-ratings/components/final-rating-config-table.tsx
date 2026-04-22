@@ -43,8 +43,8 @@ const TOTAL_COMPONENTS = 5
 type FinalRatingConfigTableProps = {
   configs: ApiFinalRatingConfig[]
   onView: (config: ApiFinalRatingConfig) => void
-  onEdit: (config: ApiFinalRatingConfig) => void
-  onDelete: (config: ApiFinalRatingConfig) => void
+  onEdit?: (config: ApiFinalRatingConfig) => void
+  onDelete?: (config: ApiFinalRatingConfig) => void
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -138,23 +138,29 @@ export function FinalRatingConfigTable({
                     View Details
                   </DropdownMenuItem>
                   {/* Edit — opens the edit form sheet (PUT /final-ratings/configs/{id}) */}
-                  <DropdownMenuItem onClick={() => onEdit(config)}>
-                    <Pencil className="size-3.5 mr-2" />
-                    Edit
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  {/* Delete — opens the confirm dialog; disabled for the active config */}
-                  <DropdownMenuItem
-                    onClick={() => onDelete(config)}
-                    disabled={config.is_active}
-                    className="text-destructive focus:text-destructive"
-                  >
-                    <Trash2 className="size-3.5 mr-2" />
-                    Delete
-                    {config.is_active && (
-                      <span className="ml-2 text-[10px] text-muted-foreground">(active)</span>
-                    )}
-                  </DropdownMenuItem>
+                  {onEdit && (
+                    <DropdownMenuItem onClick={() => onEdit(config)}>
+                      <Pencil className="size-3.5 mr-2" />
+                      Edit
+                    </DropdownMenuItem>
+                  )}
+                  {onDelete && (
+                    <>
+                      <DropdownMenuSeparator />
+                      {/* Delete — opens the confirm dialog; disabled for the active config */}
+                      <DropdownMenuItem
+                        onClick={() => onDelete(config)}
+                        disabled={config.is_active}
+                        className="text-destructive focus:text-destructive"
+                      >
+                        <Trash2 className="size-3.5 mr-2" />
+                        Delete
+                        {config.is_active && (
+                          <span className="ml-2 text-[10px] text-muted-foreground">(active)</span>
+                        )}
+                      </DropdownMenuItem>
+                    </>
+                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
             </TableCell>
