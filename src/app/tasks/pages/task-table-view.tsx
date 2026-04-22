@@ -236,9 +236,11 @@ export function TaskTableView({ tasks, onSelect, onEdit, onDelete, onRate, canEd
 
                 {/*  Project badge â€” hidden below lg  */}
                 <TableCell className="hidden lg:table-cell py-3">
-                  <Badge variant="secondary" className="text-xs max-w-[120px] truncate">
-                    {projectName}
-                  </Badge>
+                  <div className="max-w-[180px] overflow-hidden">
+                    <Badge variant="secondary" className="text-xs truncate block text-left" title={projectName}>
+                      {projectName}
+                    </Badge>
+                  </div>
                 </TableCell>
 
                 {/*  Rating â€” from task.latest_final_rating
