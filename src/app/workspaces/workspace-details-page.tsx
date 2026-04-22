@@ -260,11 +260,11 @@ export default function WorkspaceDetailsPage() {
         <Separator />
 
         {/* Members Tab */}
-        <Tabs defaultValue="members">
+        <Tabs defaultValue="todos">
           <div className="flex items-center justify-between gap-4 flex-wrap">
             <TabsList variant="line">
-              <TabsTrigger value="members">Members</TabsTrigger>
               <TabsTrigger value="todos">Todos</TabsTrigger>
+              <TabsTrigger value="members">Members</TabsTrigger>
             </TabsList>
             <div className="flex items-center gap-2">
               {/* Add Member button */}

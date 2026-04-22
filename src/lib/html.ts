@@ -3,6 +3,7 @@ const ALLOWED_TAGS = new Set([
   "p",
   "br",
   "strong",
+  "b", // Allow <b> for bold
   "em",
   "u",
   "s",

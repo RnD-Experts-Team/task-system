@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react"
 import { apiClient } from "@/services/api"
+import { usePermissions } from "@/hooks/usePermissions"
 
 // Minimal user shape needed for the assignees filter dropdown
 export interface FilterUser {
@@ -24,11 +25,15 @@ export function useAllUsers() {
   const [users, setUsers] = useState<FilterUser[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const { hasPermission } = usePermissions()
+  const canViewUsers = hasPermission("view users")
 
   useEffect(() => {
     let cancelled = false
 
     async function fetchUsers() {
+      if (!canViewUsers) return
+
       setLoading(true)
       setError(null)
       try {
@@ -55,7 +60,7 @@ export function useAllUsers() {
     return () => {
       cancelled = true
     }
-  }, []) // Empty deps — only fetch once when the filter mounts
+  }, [canViewUsers]) // Fetch when permission status changes
 
   return { users, loading, error }
 }

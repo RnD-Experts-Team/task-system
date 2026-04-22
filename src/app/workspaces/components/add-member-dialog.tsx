@@ -23,6 +23,7 @@ import { Label } from "@/components/ui/label"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { AlertCircle, ChevronDown, ChevronUp, Loader2, Search, UserRound, X } from "lucide-react"
 import { usersService } from "@/services/usersService"
+import { usePermissions } from "@/hooks/usePermissions"
 import type { User } from "@/app/users/data"
 import type { AddWorkspaceMemberPayload } from "../types"
 
@@ -64,6 +65,9 @@ export function AddMemberDialog({
   submitting = false,
   submitError,
 }: Props) {
+  const { hasPermission } = usePermissions()
+  const canViewUsers = hasPermission("view users")
+
   const {
     handleSubmit,
     control,
@@ -95,16 +99,16 @@ export function AddMemberDialog({
     )
   }, [allUsers, searchQuery])
 
-  // Fetch users when the dialog opens
+  // Fetch users when the dialog opens — only if the current user has permission
   useEffect(() => {
-    if (!open) return
+    if (!open || !canViewUsers) return
     setUsersLoading(true)
     usersService
       .getAll(1)
       .then(({ users }) => setAllUsers(users))
       .catch(() => setAllUsers([]))
       .finally(() => setUsersLoading(false))
-  }, [open])
+  }, [open, canViewUsers])
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -222,8 +226,12 @@ export function AddMemberDialog({
             <div className="space-y-2">
               <Label>User</Label>
 
-              {/* Selected user card */}
-              {selectedUser ? (
+              {!canViewUsers ? (
+                <div className="flex items-center gap-2 rounded-md border border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
+                  <AlertCircle className="size-4 shrink-0 text-muted-foreground" />
+                  You don't have permission to search users.
+                </div>
+              ) : selectedUser ? (
                 collapsedSelectedUser ? (
                   <div className="flex items-center gap-2 rounded-md border border-border bg-muted/10 px-2 py-1">
                     <Avatar className="size-7 shrink-0">

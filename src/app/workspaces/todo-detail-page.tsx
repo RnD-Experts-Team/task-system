@@ -1,6 +1,6 @@
 import { useMemo } from "react"
 import { Link, useNavigate, useParams } from "react-router"
-import { AlertCircle, Pencil, Calendar, CheckCircle2 } from "lucide-react"
+import { AlertCircle, Pencil, Calendar, CheckCircle2, Plus } from "lucide-react"
 import { TodoDetailSkeleton } from "./components/skeletons"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -181,11 +181,23 @@ export default function TodoDetailPage() {
         </div>
 
         {/* Subtasks */}
-        {subtasks.length > 0 && (
-          <>
-            <Separator />
-            <div className="space-y-3">
+        <>
+          <Separator />
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold tracking-tight">Subtasks</h2>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => navigate(`/workspaces/${workspaceId}/todos/create?parent=${todo.id}`)}
+              >
+                <Plus className="size-4" />
+                Add Subtask
+              </Button>
+            </div>
+            {subtasks.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No subtasks yet. Add one above.</p>
+            ) : (
               <div className="space-y-2">
                 {subtasks.map((sub) => (
                   <Card
@@ -213,9 +225,9 @@ export default function TodoDetailPage() {
                   </Card>
                 ))}
               </div>
-            </div>
-          </>
-        )}
+            )}
+          </div>
+        </>
       </div>
     </WorkspacePageShell>
   )

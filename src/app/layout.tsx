@@ -3,6 +3,12 @@ import { AppSidebar } from "@/components/app-sidebar"
 import { SiteHeader } from "@/components/site-header"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { DashboardBackground } from "@/components/dashboard-background"
+import { useClockingNotifications } from "@/hooks/useClockingNotifications"
+
+function ClockingNotificationsProvider() {
+  useClockingNotifications()
+  return null
+}
 
 export default function Layout() {
   return (
@@ -14,6 +20,7 @@ export default function Layout() {
         } as React.CSSProperties
       }
     >
+      <ClockingNotificationsProvider />
       <DashboardBackground />
       <AppSidebar variant="inset" />
       <SidebarInset>

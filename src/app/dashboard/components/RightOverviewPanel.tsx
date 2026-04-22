@@ -8,6 +8,7 @@ import EmptyState from "./EmptyState"
 import { cn } from "@/lib/utils"
 import { useNavigate } from "react-router"
 import { useAuthStore } from "@/app/(auth)/stores/authStore"
+import { usePermissions } from "@/hooks/usePermissions"
 import type { EmployeeData, RecentActivity } from "@/types"
 
 function mapActivities(activities: RecentActivity[]) {
@@ -38,6 +39,9 @@ export default function RightOverviewPanel({
 }) {
   const navigate = useNavigate()
   const user = useAuthStore((s) => s.user)
+  const { hasPermission } = usePermissions()
+  const canViewUsers = hasPermission("view users")
+  const canEditUsers = hasPermission("edit users")
   const initials =
     user?.name
       ?.split(" ")
@@ -66,24 +70,28 @@ export default function RightOverviewPanel({
             <p className="text-xs text-muted-foreground mt-0.5">{user?.email ?? ""}</p>
           </div>
           <div className="flex gap-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-8 rounded-full"
-              aria-label="Edit profile"
-              onClick={() => navigate("/users", { state: { editUserId: String(user?.id) } })}
-            >
-              <Edit className="size-3.5" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-8 rounded-full"
-              aria-label="View profile"
-              onClick={() => navigate("/users", { state: { openUserId: String(user?.id) } })}
-            >
-              <Eye className="size-3.5" />
-            </Button>
+            {canEditUsers && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-8 rounded-full"
+                aria-label="Edit profile"
+                onClick={() => navigate("/users", { state: { editUserId: String(user?.id) } })}
+              >
+                <Edit className="size-3.5" />
+              </Button>
+            )}
+            {canViewUsers && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-8 rounded-full"
+                aria-label="View profile"
+                onClick={() => navigate("/users", { state: { openUserId: String(user?.id) } })}
+              >
+                <Eye className="size-3.5" />
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -310,12 +318,28 @@ export default function RightOverviewPanel({
                   <p className="text-sm text-muted-foreground mt-0.5">{user?.email ?? ""}</p>
                 </div>
                 <div className="flex gap-2">
-                  <Button variant="ghost" size="icon" className="size-8 rounded-full" aria-label="Edit profile">
-                    <Edit className="size-3.5" />
-                  </Button>
-                  <Button variant="ghost" size="icon" className="size-8 rounded-full" aria-label="View profile">
-                    <Eye className="size-3.5" />
-                  </Button>
+                  {canEditUsers && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-8 rounded-full"
+                      aria-label="Edit profile"
+                      onClick={() => navigate("/users", { state: { editUserId: String(user?.id) } })}
+                    >
+                      <Edit className="size-3.5" />
+                    </Button>
+                  )}
+                  {canViewUsers && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-8 rounded-full"
+                      aria-label="View profile"
+                      onClick={() => navigate("/users", { state: { openUserId: String(user?.id) } })}
+                    >
+                      <Eye className="size-3.5" />
+                    </Button>
+                  )}
                 </div>
               </CardContent>
             </Card>

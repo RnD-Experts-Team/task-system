@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Play, Square, Coffee, Clock, CalendarDays, Info, Loader2, AlertCircle, RefreshCw } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { isCancel } from "axios"
+import { toast } from "sonner"
 import { clockingService } from "@/services/clockingService"
 import { useAuthStore } from "@/app/(auth)/stores/authStore"
 import { useClockingChannel } from "@/hooks/useClockingChannel"
@@ -137,6 +138,20 @@ export default function ClockingInOutPage() {
   // ── Ref to avoid re-running effect when session changes ────────
   const sessionRef = useRef(session)
   sessionRef.current = session
+
+  // ── Ref to track whether the 15-min break warning has fired ────
+  // Stores the session id for which the warning was already shown so
+  // we never fire more than once per session.
+  const breakWarningSessionRef = useRef<number | null>(null)
+
+  // ── Request browser notification permission on mount ───────────
+  // Needed so we can fire a native OS notification when the user is
+  // on a different tab and the break limit is reached.
+  useEffect(() => {
+    if (typeof Notification !== "undefined" && Notification.permission === "default") {
+      Notification.requestPermission()
+    }
+  }, [])
 
   // ── Derived booleans (computed from session status) ────────────
   const isActive = session !== null && session.status !== "completed"
@@ -272,6 +287,42 @@ export default function ClockingInOutPage() {
       setActionLoading(false)
     }
   }, [isOnBreak, applySessionResponse])
+
+  // ── Break over-limit warning (> 17 min total break time) ───────
+  // Fires once per session when cumulative break time exceeds 17 minutes.
+  const BREAK_LIMIT_MS = 17 * 60 * 1000
+  useEffect(() => {
+    if (!session || session.status === "completed") return
+    // Reset the warning if a new session started
+    if (breakWarningSessionRef.current !== null && breakWarningSessionRef.current !== session.id) {
+      breakWarningSessionRef.current = null
+    }
+    // Fire exactly once per session when the limit is crossed
+    if (breakMs >= BREAK_LIMIT_MS && breakWarningSessionRef.current !== session.id) {
+      breakWarningSessionRef.current = session.id
+
+      const title = "Break limit reached"
+      const body = "Your total break time has exceeded 17 minutes. Please end your break and resume working."
+
+      // Always show the in-app toast
+      toast.warning(title, { description: body, duration: Infinity })
+
+      // Also fire a native OS notification so the alert surfaces on other tabs
+      if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+        const n = new Notification(title, {
+          body,
+          icon: "/favicon.ico",
+          tag: `break-limit-${session.id}`, // prevents duplicate OS notifications
+          requireInteraction: true,         // stays visible until dismissed
+        })
+        // Clicking the notification focuses this tab
+        n.onclick = () => {
+          window.focus()
+          n.close()
+        }
+      }
+    }
+  }, [breakMs, session])
 
   // ── Retry: re-fetch initial data after an error ────────────────
   const handleRetry = useCallback(async () => {

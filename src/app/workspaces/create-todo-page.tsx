@@ -1,5 +1,5 @@
 import { useMemo } from "react"
-import { useNavigate, useParams } from "react-router"
+import { useNavigate, useParams, useSearchParams } from "react-router"
 import { TodoForm, type TodoFormValues } from "./components/todo-form"
 import { WorkspacePageShell } from "./components/workspace-page-shell"
 import { useTodos } from "./hooks/useTodos"
@@ -8,6 +8,7 @@ import { useCreateTodo } from "./hooks/useCreateTodo"
 export default function CreateTodoPage() {
   const navigate = useNavigate()
   const params = useParams<{ id: string }>()
+  const [searchParams] = useSearchParams()
 
   // Parse workspace ID from the URL
   const workspaceId = useMemo(() => {
@@ -15,14 +16,29 @@ export default function CreateTodoPage() {
     return Number.isFinite(parsed) ? parsed : null
   }, [params.id])
 
+  // Optional pre-selected parent from ?parent=<id>
+  const defaultParentId = useMemo(() => {
+    const raw = searchParams.get("parent")
+    if (!raw) return null
+    const parsed = Number(raw)
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : null
+  }, [searchParams])
+
   // Fetch existing todos so we can offer them as parent options
   const { todos } = useTodos(workspaceId)
 
-  // Only top-level todos can be parents
-  const parentTodos = useMemo(
-    () => todos.filter((t) => t.parent_id === null),
-    [todos]
-  )
+  // All todos (including subtodos) that can serve as parent — any level is valid
+  const parentTodos = useMemo(() => {
+    if (defaultParentId) {
+      // When navigating from a specific todo's detail page, find that todo
+      // (it may be a subtask itself, nested inside another todo's subtodos)
+      const allTodos = todos.flatMap((t) => [t, ...(t.subtodos ?? [])])
+      const parentTodo = allTodos.find((t) => t.id === defaultParentId)
+      // Return only that todo so the dropdown is pre-filled with just it
+      return parentTodo ? [parentTodo] : todos.filter((t) => t.parent_id === null)
+    }
+    return todos.filter((t) => t.parent_id === null)
+  }, [todos, defaultParentId])
 
   // Create mutation hook
   const { createTodo, submitting, submitError, clearSubmitError } = useCreateTodo()
@@ -57,6 +73,7 @@ export default function CreateTodoPage() {
       <TodoForm
         mode="create"
         parentTodos={parentTodos}
+        defaultParentId={defaultParentId}
         submitting={submitting}
         submitError={submitError}
         onSubmit={handleSubmit}

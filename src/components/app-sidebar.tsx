@@ -21,10 +21,10 @@ import {
   Star,
   Clock,
   Shield,
-  Command,
   LayoutGrid,
 } from "lucide-react"
 import { usePermissions } from "@/hooks/usePermissions";
+import taskSystemLogo from "@/assets/image.png"
 const data = {
   user: {
     name: "Admin",
@@ -158,8 +158,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               className="h-auto p-0 hover:bg-transparent group/brand"
             >
               <a href="/" className="flex flex-col justify-center items-center  gap-4">
-                <div className="flex items-center justify-center h-10 w-10 rounded-lg bg-sidebar-primary text-white">
-                  <Command className="size-10" />
+                <div className="flex items-center justify-center h-12 w-12 overflow-hidden rounded-xl bg-black/90 p-1 ring-1 ring-white/10">
+                  <img src={taskSystemLogo} alt="Task System" className="h-full w-full object-contain" />
                 </div>
                 <div className="flex flex-col">
                   <span className="text-sm font-semibold text-sidebar-foreground">Task System</span>

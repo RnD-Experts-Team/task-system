@@ -32,6 +32,8 @@ type TodoFormProps = {
   todo?: WorkspaceTodo | null
   // Available parent todos for the "parent" dropdown
   parentTodos?: WorkspaceTodo[]
+  // Pre-selected parent ID (used when navigating from a todo detail page)
+  defaultParentId?: number | null
   submitting?: boolean
   // Server-side error message to display above the form
   submitError?: string | null
@@ -50,6 +52,7 @@ export function TodoForm({
   mode,
   todo,
   parentTodos = [],
+  defaultParentId,
   submitting = false,
   submitError,
   onSubmit,
@@ -68,7 +71,7 @@ export function TodoForm({
       // Convert null to empty string for the date input
       due_date: todo?.due_date ?? "",
       status: todo?.status ?? "pending",
-      parent_id: todo?.parent_id ?? null,
+      parent_id: todo?.parent_id ?? defaultParentId ?? null,
     },
   })
 

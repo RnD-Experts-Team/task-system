@@ -234,6 +234,19 @@ export default function ClockingSessionsPage() {
     fetchCorrections()
   }, [fetchLiveData, fetchCorrections])
 
+  // ── Refetch when the browser tab becomes visible again ────────
+  // Handles the case where the user switches away and back.
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === "visible") {
+        fetchLiveData()
+        fetchCorrections()
+      }
+    }
+    document.addEventListener("visibilitychange", onVisible)
+    return () => document.removeEventListener("visibilitychange", onVisible)
+  }, [fetchLiveData, fetchCorrections])
+
   // ── Load records when the All Records tab first opens ─────────
   useEffect(() => {
     if (activeTab === "records") {
@@ -249,10 +262,32 @@ export default function ClockingSessionsPage() {
     }
   }, [startDate, endDate, statusFilter]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── WebSocket: refresh live data on any ClockSessionUpdated ───
-  // Reuses the global Echo instance to avoid duplicate connections
-  useManagerClockingChannel((_payload) => {
-    fetchLiveData()
+  // ── WebSocket: apply session changes instantly from the payload ─
+  // We merge the incoming session directly into local state so the
+  // dashboard updates the moment the event arrives — no HTTP round-trip.
+  useManagerClockingChannel((payload) => {
+    const { session, company_timezone, server_time_utc } = payload
+
+    setLiveData((prev) => {
+      // If initial data hasn't loaded yet, ignore — fetchLiveData on mount
+      // will populate it shortly.
+      if (!prev) return prev
+
+      const isStillActive =
+        session.status === "active" || session.status === "on_break"
+
+      // Remove any existing entry for this user, then re-add if still active
+      const without = prev.sessions.filter(
+        (s) => s.session.user_id !== session.user_id
+      )
+      const sessions = isStillActive
+        ? [...without, { session, company_timezone, server_time_utc }]
+        : without
+
+      return { ...prev, sessions }
+    })
+
+    // Corrections may change independently — keep refreshing them
     fetchCorrections()
   })
 

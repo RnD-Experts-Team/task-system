@@ -137,6 +137,7 @@ export function WorkspaceTodosTable({ todos, workspaceId, onDelete }: Props) {
 
               {/* Subtask rows — indented under the parent */}
               {todo.subtodos?.map((sub) => (
+                <>
                 <TableRow
                   key={sub.id}
                   className="cursor-pointer bg-muted/30 hover:bg-muted/50"
@@ -198,6 +199,72 @@ export function WorkspaceTodosTable({ todos, workspaceId, onDelete }: Props) {
                     </DropdownMenu>
                   </TableCell>
                 </TableRow>
+
+                {/* Sub-subtask rows — doubly indented */}
+                {sub.subtodos?.map((subsub) => (
+                  <TableRow
+                    key={subsub.id}
+                    className="cursor-pointer bg-muted/50 hover:bg-muted/70"
+                    onClick={() => navigate(`/workspaces/${workspaceId}/todos/${subsub.id}`)}
+                  >
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center justify-end pr-1 border-r-2 border-muted-foreground/10 h-full">
+                        <Checkbox checked={subsub.status === "completed"} className="size-3" />
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-col gap-0.5 pl-12">
+                        <span className={`text-xs font-medium text-muted-foreground/80 ${subsub.status === "completed" ? "line-through" : ""}`}>
+                          {subsub.title}
+                        </span>
+                        <span className="text-[0.6rem] text-muted-foreground/50 italic">
+                          Subtask of {sub.title}
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      {subsub.due_date ? (
+                        <span className="text-xs text-muted-foreground/60">
+                          {new Date(subsub.due_date).toLocaleDateString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                          })}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground/40">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Badge variant="outline" className={`text-[0.55rem] ${statusClassName(subsub.status)}`}>
+                        {TODO_STATUS_LABELS[subsub.status]}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="size-6">
+                            <MoreVertical className="size-3" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => navigate(`/workspaces/${workspaceId}/todos/${subsub.id}`)}>
+                            View
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => navigate(`/workspaces/${workspaceId}/todos/${subsub.id}/edit`)}>
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="text-destructive focus:text-destructive"
+                            onClick={() => onDelete(subsub)}
+                          >
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                </>
               ))}
             </>
           ))}

@@ -195,11 +195,11 @@ export function CorrectionRequestDialog({
                     required
                     value={breakRecordId}
                     onChange={(e) => setBreakRecordId(Number(e.target.value))}
-                    className="w-full border-none bg-transparent px-4 py-3.5 text-sm text-foreground outline-none"
+                    className="w-full border-none bg-background dark:bg-zinc-900 px-4 py-3.5 text-sm text-foreground outline-none appearance-none cursor-pointer"
                   >
-                    <option value="">— Select a break —</option>
+                    <option value="" className="bg-background text-muted-foreground">— Select a break —</option>
                     {record.break_records.map((br) => (
-                      <option key={br.id} value={br.id}>
+                      <option key={br.id} value={br.id} className="bg-background text-foreground py-2">
                         Break #{br.id} — Start: {new Date(br.break_start_utc).toLocaleTimeString()}
                         {br.break_end_utc
                           ? ` / End: ${new Date(br.break_end_utc).toLocaleTimeString()}`

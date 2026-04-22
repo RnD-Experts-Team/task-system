@@ -41,6 +41,7 @@ import {
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { DateInput } from "@/components/ui/date-input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { HtmlContent } from "@/components/ui/html-content"
@@ -503,9 +504,8 @@ function SubtaskForm({
         {/* Due Date — required */}
         <div className="space-y-1">
           <Label htmlFor="sub-due" className="text-xs">Due Date *</Label>
-          <Input
+          <DateInput
             id="sub-due"
-            type="date"
             value={dueDate}
             onChange={(e) => setDueDate(e.target.value)}
             className="h-9 text-sm"
