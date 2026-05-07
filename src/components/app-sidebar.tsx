@@ -1,4 +1,5 @@
 import * as React from "react"
+import { Link } from "react-router"
 import { NavMain } from "@/components/nav-main"
 import { NavUser } from "@/components/nav-user"
 import { NavCollapsible } from "@/components/nav-collapsible"
@@ -157,14 +158,14 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               asChild
               className="h-auto p-0 hover:bg-transparent group/brand"
             >
-              <a href="/" className="flex flex-col justify-center items-center  gap-4">
+              <Link to="/" className="flex flex-col justify-center items-center  gap-4">
                 <div className="flex items-center justify-center h-12 w-12 overflow-hidden rounded-xl bg-black/90 p-1 ring-1 ring-white/10">
                   <img src={taskSystemLogo} alt="Task System" className="h-full w-full object-contain" />
                 </div>
                 <div className="flex flex-col">
                   <span className="text-sm font-semibold text-sidebar-foreground">Task System</span>
                 </div>
-              </a>
+              </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

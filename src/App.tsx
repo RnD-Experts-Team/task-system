@@ -46,6 +46,7 @@ const EditTodoPage = lazy(() => import("@/app/workspaces/edit-todo-page"))
 const TodoDetailPage = lazy(() => import("@/app/workspaces/todo-detail-page"))
 const AccountPage = lazy(() => import("@/app/account/page"))
 const NotFoundPage = lazy(() => import("@/app/not-found"))
+const SupportTicketPage = lazy(() => import("@/app/tickets/pages/support-ticket-page"))
 
 function PageLoader() {
   return (
@@ -66,6 +67,8 @@ function App() {
                 <Route element={<AuthLayout />}>
                   <Route path="login" element={<LoginPage />} />
                 </Route>
+                {/* Public support ticket page — no auth required */}
+                <Route path="support-ticket" element={<SupportTicketPage />} />
                 <Route element={<AuthGuard><Layout /></AuthGuard>}>
                   <Route index element={<DashboardPage />} />
                   <Route path="users" element={<UsersPage />} />

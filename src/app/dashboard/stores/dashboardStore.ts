@@ -15,6 +15,8 @@ interface DashboardState {
   // Employee
   employee: EmployeeData | null;
   employeeLoading: boolean;
+  // Flag set when fetching employee dashboard failed (backend error)
+  employeeError: boolean;
 }
 
 interface DashboardActions {
@@ -37,6 +39,7 @@ export const useDashboardStore = create<DashboardStore>()((set, get) => ({
 
   employee: null,
   employeeLoading: false,
+  employeeError: false,
 
   fetchAnalytics: async (period) => {
     const p = period ?? get().analyticsPeriod;
@@ -60,13 +63,14 @@ export const useDashboardStore = create<DashboardStore>()((set, get) => ({
   },
 
   fetchEmployee: async () => {
-    set({ employeeLoading: true });
+    set({ employeeLoading: true, employeeError: false });
     try {
       const data = await dashboardService.getEmployee();
       set({ employee: data });
     } catch (error) {
       if (!isCancel(error)) {
         toast.error("Failed to load employee dashboard");
+        set({ employeeError: true });
       }
     } finally {
       set({ employeeLoading: false });

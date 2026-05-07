@@ -5,6 +5,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { ChevronDown } from "lucide-react"
 import { useState } from "react"
+import { Link } from "react-router"
 import { useAuthStore } from "@/app/(auth)/stores/authStore"
 import { AppBreadcrumbs } from "@/components/app-breadcrumbs"
 
@@ -65,12 +66,12 @@ export function SiteHeader() {
             }} />
           </CollapsibleTrigger>
           <CollapsibleContent className="absolute right-4 lg:right-6 top-full mt-2 bg-background border border-border rounded-lg shadow-lg p-2 min-w-max z-10">
-            <a 
-              href="/account"
-              className="block px-4 py-2 text-sm text-foreground hover:bg-accent rounded-md transition-colors "
+            <Link
+              to="/account"
+              className="block px-4 py-2 text-sm text-foreground hover:bg-accent rounded-md transition-colors"
             >
-              Your Account 
-            </a>
+              Your Account
+            </Link>
           </CollapsibleContent>
         </Collapsible>
       </div>
