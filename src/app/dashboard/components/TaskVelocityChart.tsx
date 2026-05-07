@@ -28,7 +28,7 @@ export default function TaskVelocityChart({ data }: { data?: TaskDistribution | 
       <CardContent>
         {chartData.length > 0 ? (
           <>
-            <ResponsiveContainer width="100%" height={160}>
+            <ResponsiveContainer width="100%" height={160} minWidth={0} minHeight={0}>
               <BarChart data={chartData} barSize={20}>
                 <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: "var(--color-muted-foreground)" }} />
                 <Tooltip

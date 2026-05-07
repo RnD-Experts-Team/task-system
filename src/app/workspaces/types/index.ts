@@ -76,18 +76,16 @@ export interface WorkspaceTodo {
   subtodos?: WorkspaceTodo[]
 }
 
-// Body for POST /todos — workspace_id is required in the body
+// Body for POST /workspaces/{id}/todos — workspace_id is provided in the URL
 export interface CreateTodoPayload {
-  workspace_id: number
   title: string
   due_date?: string | null
   parent_id?: number | null
   status?: TodoStatus | null
 }
 
-// Body for PUT /todos/{id} — title is required, rest optional
+// Body for PUT /workspaces/{id}/todos/{todo} — title is required, rest optional
 export interface UpdateTodoPayload {
-  workspace_id?: number | null
   title: string
   due_date?: string | null
   parent_id?: number | null
