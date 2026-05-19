@@ -37,7 +37,7 @@ export default function TodoDetailPage() {
   }, [params.todoId])
 
   // Load todo from API
-  const { todo, loading: todoLoading } = useTodo(todoId)
+  const { todo, loading: todoLoading } = useTodo(workspaceId, todoId)
 
   // Fetch workspace from the API
   const { workspace } = useWorkspace(workspaceId)

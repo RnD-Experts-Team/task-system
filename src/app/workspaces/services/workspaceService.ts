@@ -120,26 +120,32 @@ class WorkspaceService {
   }
 
   // ─── Todos — Show ─────────────────────────────────────────────────
-  // GET /todos/{id} — returns a single todo with its subtodos
-  async getTodoById(todoId: number): Promise<WorkspaceTodo> {
-    const response = await apiClient.get<WorkspaceTodo>(`/todos/${todoId}`)
+  // GET /workspaces/{id}/todos/{todo} — returns a single todo with its subtodos
+  async getTodoById(workspaceId: number, todoId: number): Promise<WorkspaceTodo> {
+    const response = await apiClient.get<WorkspaceTodo>(
+      `/workspaces/${workspaceId}/todos/${todoId}`
+    )
     return response.data
   }
 
   // ─── Todos — Create ───────────────────────────────────────────────
-  // POST /todos — creates a new todo (workspace_id goes in the body)
-  async createTodo(payload: CreateTodoPayload): Promise<WorkspaceTodo> {
-    const response = await apiClient.post<WorkspaceTodo>("/todos", payload, {
-      toast: { success: "Todo created successfully" },
-    } as never)
+  // POST /workspaces/{id}/todos — creates a new todo in the workspace
+  async createTodo(workspaceId: number, payload: CreateTodoPayload): Promise<WorkspaceTodo> {
+    const response = await apiClient.post<WorkspaceTodo>(
+      `/workspaces/${workspaceId}/todos`,
+      payload,
+      {
+        toast: { success: "Todo created successfully" },
+      } as never
+    )
     return response.data
   }
 
   // ─── Todos — Update ───────────────────────────────────────────────
-  // PUT /todos/{id} — updates an existing todo
-  async updateTodo(todoId: number, payload: UpdateTodoPayload): Promise<WorkspaceTodo> {
+  // PUT /workspaces/{id}/todos/{todo} — updates an existing todo
+  async updateTodo(workspaceId: number, todoId: number, payload: UpdateTodoPayload): Promise<WorkspaceTodo> {
     const response = await apiClient.put<WorkspaceTodo>(
-      `/todos/${todoId}`,
+      `/workspaces/${workspaceId}/todos/${todoId}`,
       payload,
       { toast: { success: "Todo updated successfully" } } as never
     )
@@ -147,9 +153,9 @@ class WorkspaceService {
   }
 
   // ─── Todos — Delete ───────────────────────────────────────────────
-  // DELETE /todos/{id} — permanently removes a todo
-  async deleteTodo(todoId: number): Promise<void> {
-    await apiClient.delete(`/todos/${todoId}`, {
+  // DELETE /workspaces/{id}/todos/{todo} — permanently removes a todo
+  async deleteTodo(workspaceId: number, todoId: number): Promise<void> {
+    await apiClient.delete(`/workspaces/${workspaceId}/todos/${todoId}`, {
       toast: { success: "Todo deleted successfully" },
     } as never)
   }

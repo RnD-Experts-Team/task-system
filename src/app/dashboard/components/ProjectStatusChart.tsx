@@ -34,7 +34,7 @@ export default function ProjectStatusChart({ data }: { data?: ProjectStatusData 
         {chartData.length > 0 ? (
           <>
             <div className="relative w-36 h-36 sm:w-44 sm:h-44 shrink-0">
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                 <PieChart>
                   <Pie
                     data={chartData}

@@ -140,12 +140,12 @@ export default function WorkspaceDetailsPage() {
 
   /** Executes todo deletion; closes dialog on success and refetches todos */
   async function handleDeleteConfirm() {
-    if (!deleteTarget) return
-    const ok = await deleteTodo(deleteTarget.id)
+    if (!workspaceId || !deleteTarget) return
+    const ok = await deleteTodo(workspaceId, deleteTarget.id)
     if (ok) {
       setDeleteDialogOpen(false)
       // Refresh list to ensure server state is in sync
-      if (workspaceId) refetchTodos && refetchTodos()
+      refetchTodos && refetchTodos()
     }
   }
 

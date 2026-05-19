@@ -9,6 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { ThemeToggle } from "@/components/theme-toggle"
 import type { ApiValidationError } from "@/types"
 import { useAuth } from "../hooks/useAuth"
+import taskSystemLogo from "@/assets/image.png"
 
 interface LoginFormValues {
   email: string
@@ -70,20 +71,9 @@ export default function LoginPage() {
       <div className="animate-in fade-in duration-500 fill-mode-both w-full max-w-md">
         <div className="rounded-xl border border-white/10 bg-white/4 dark:bg-black/40 p-8 shadow-2xl backdrop-blur-xl ring-1 ring-inset ring-white/5">
         <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-xl bg-linear-to-br from-chart-1 to-chart-5 shadow-lg">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="size-6 text-primary-foreground"
-            >
-              <path d="M15 6v12a3 3 0 1 0 3-3H6a3 3 0 1 0 3 3V6a3 3 0 1 0-3 3h12a3 3 0 1 0-3-3" />
-            </svg>
-          </div>
+          {/* <div className="mx-auto mb-6 flex items-center justify-center w-12 h-12 rounded-xl bg-white/10 backdrop-blur-md border border-white/20 shadow-lg overflow-hidden p-1"> */}
+            <img src={taskSystemLogo} alt="Task System Logo" className="w-24 h-24 mx-auto object-contain drop-shadow-sm" />
+          {/* </div> */}
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">
             Welcome back
           </h1>

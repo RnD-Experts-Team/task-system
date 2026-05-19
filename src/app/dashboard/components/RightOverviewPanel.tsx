@@ -8,6 +8,7 @@ import EmptyState from "./EmptyState"
 import { cn } from "@/lib/utils"
 import { useNavigate } from "react-router"
 import { useAuthStore } from "@/app/(auth)/stores/authStore"
+import { useDashboardStore } from "@/app/dashboard/stores/dashboardStore"
 import { usePermissions } from "@/hooks/usePermissions"
 import type { EmployeeData, RecentActivity } from "@/types"
 
@@ -52,6 +53,8 @@ export default function RightOverviewPanel({
   const o = employee?.overview ?? null
   const UPCOMING_TASKS = employee?.upcoming_tasks ?? []
   const RECENT_ACTIVITIES = employee ? mapActivities(employee.recent_activity) : []
+  const employeeError = useDashboardStore((s) => s.employeeError)
+  const refetchEmployee = useDashboardStore((s) => s.fetchEmployee)
   // ── Shared sidebar content ────────────────────────────────────
   const sidebarInner = (
     <div className="flex flex-col gap-5 p-5 flex-1 min-h-0">
@@ -249,7 +252,14 @@ export default function RightOverviewPanel({
       {/* Recent Activity */}
       <div>
         <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground mb-4">Recent Activity</h3>
-        {RECENT_ACTIVITIES.length > 0 ? (
+        {employeeError ? (
+          <div className="flex flex-col gap-3">
+            <p className="text-sm text-rose-500">Recent activity is temporarily unavailable.</p>
+            <div className="flex gap-2">
+              <Button size="sm" onClick={() => refetchEmployee()}>Retry</Button>
+            </div>
+          </div>
+        ) : RECENT_ACTIVITIES.length > 0 ? (
           <div className="relative pl-5 space-y-4">
             <div className="absolute left-1.5 top-1.5 bottom-1.5 w-px bg-border/30" aria-hidden="true" />
             {RECENT_ACTIVITIES.map((activity) => (

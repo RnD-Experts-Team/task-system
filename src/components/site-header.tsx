@@ -5,6 +5,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { ChevronDown } from "lucide-react"
 import { useState } from "react"
+import { Link } from "react-router"
 import { useAuthStore } from "@/app/(auth)/stores/authStore"
 import { AppBreadcrumbs } from "@/components/app-breadcrumbs"
 
@@ -23,9 +24,9 @@ export function SiteHeader() {
     .slice(0, 2) || "?"
 
   return (
-    <header className="relative z-30 flex h-[var(--header-height)] shrink-0 items-center justify-between gap-2 border-b border-border bg-background transition-[width,height] ease-linear">
+    <header className="sticky top-0 z-40 flex h-(--header-height) shrink-0 items-center justify-between gap-2 border-b border-border/20 bg-white/80 backdrop-blur-xl transition-[width,height] ease-linear dark:border-white/10 dark:bg-black/50">
       <div className="flex-1 min-w-0 flex items-center gap-1 px-4 lg:gap-2 lg:px-6">
-        <SidebarTrigger className="-ms-1" />
+        <SidebarTrigger aria-label="Toggle sidebar" className="-ms-1" />
         <Separator
           orientation="vertical"
           className="mx-2 data-[orientation=vertical]:h-4"
@@ -64,13 +65,14 @@ export function SiteHeader() {
               transform: isAccountOpen ? 'rotate(180deg)' : 'rotate(0deg)'
             }} />
           </CollapsibleTrigger>
-          <CollapsibleContent className="absolute right-4 lg:right-6 top-full mt-2 bg-background border border-border rounded-lg shadow-lg p-2 min-w-max z-10">
-            <a 
-              href="/account"
-              className="block px-4 py-2 text-sm text-foreground hover:bg-accent rounded-md transition-colors "
+          <CollapsibleContent className="absolute right-4 top-full z-50 mt-2 min-w-max rounded-lg border border-white/10 bg-black/70 p-2 shadow-lg backdrop-blur-xl lg:right-6">
+            <Link
+              to="/account"
+              onClick={() => setIsAccountOpen(false)}
+              className="block px-4 py-2 text-sm text-foreground hover:bg-accent rounded-md transition-colors"
             >
-              Your Account 
-            </a>
+              Your Account
+            </Link>
           </CollapsibleContent>
         </Collapsible>
       </div>

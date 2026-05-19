@@ -3,7 +3,7 @@ import { useWorkspaceStore } from "../store/workspaceStore"
 
 // Hook to fetch a single todo by ID
 // Returns the todo with subtodos; clears on unmount
-export function useTodo(todoId: number | null) {
+export function useTodo(workspaceId: number | null, todoId: number | null) {
   const selectedTodo = useWorkspaceStore((s) => s.selectedTodo)
   const loading = useWorkspaceStore((s) => s.selectedTodoLoading)
   const error = useWorkspaceStore((s) => s.selectedTodoError)
@@ -11,11 +11,11 @@ export function useTodo(todoId: number | null) {
   const clearSelectedTodo = useWorkspaceStore((s) => s.clearSelectedTodo)
 
   useEffect(() => {
-    if (todoId !== null) {
-      fetchTodo(todoId)
+    if (workspaceId !== null && todoId !== null) {
+      fetchTodo(workspaceId, todoId)
     }
     return () => clearSelectedTodo()
-  }, [todoId, fetchTodo, clearSelectedTodo])
+  }, [workspaceId, todoId, fetchTodo, clearSelectedTodo])
 
   return {
     todo: selectedTodo,

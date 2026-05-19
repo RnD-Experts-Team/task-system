@@ -23,7 +23,7 @@ export default function EditTodoPage() {
     return Number.isFinite(parsed) ? parsed : null
   }, [params.todoId])
   // Load todo from API
-  const { todo, loading: todoLoading, error: todoError } = useTodo(todoId)
+  const { todo, loading: todoLoading, error: todoError } = useTodo(workspaceId, todoId)
 
   // Parent options come from the workspace todo list
   const { todos: allTodos } = useTodos(workspaceId)
@@ -35,10 +35,9 @@ export default function EditTodoPage() {
   const { updateTodo, submitting, submitError, clearSubmitError } = useUpdateTodo()
 
   async function handleSubmit(values: TodoFormValues) {
-    if (!todoId) return
+    if (!workspaceId || !todoId) return
     clearSubmitError()
-    const updated = await updateTodo(todoId, {
-      workspace_id: workspaceId,
+    const updated = await updateTodo(workspaceId, todoId, {
       title: values.title,
       due_date: values.due_date || null,
       status: values.status,

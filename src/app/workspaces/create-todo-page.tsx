@@ -48,8 +48,7 @@ export default function CreateTodoPage() {
     if (!workspaceId) return
     clearSubmitError()
 
-    const todo = await createTodo({
-      workspace_id: workspaceId,
+    const todo = await createTodo(workspaceId, {
       title: values.title,
       // Send null instead of empty string for optional date
       due_date: values.due_date || null,

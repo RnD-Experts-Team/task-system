@@ -103,13 +103,13 @@ interface WorkspaceActions {
   // Fetch all todos for a workspace (top-level with subtodos)
   fetchTodos: (workspaceId: number) => Promise<void>
   // Fetch a single todo by ID (with subtodos)
-  fetchTodo: (todoId: number) => Promise<void>
+  fetchTodo: (workspaceId: number, todoId: number) => Promise<void>
   // Create a new todo — returns the created todo or null on failure
-  createTodo: (payload: CreateTodoPayload) => Promise<WorkspaceTodo | null>
+  createTodo: (workspaceId: number, payload: CreateTodoPayload) => Promise<WorkspaceTodo | null>
   // Update a todo — returns the updated todo or null on failure
-  updateTodo: (todoId: number, payload: UpdateTodoPayload) => Promise<WorkspaceTodo | null>
+  updateTodo: (workspaceId: number, todoId: number, payload: UpdateTodoPayload) => Promise<WorkspaceTodo | null>
   // Delete a todo — returns true on success, false on failure
-  deleteTodo: (todoId: number) => Promise<boolean>
+  deleteTodo: (workspaceId: number, todoId: number) => Promise<boolean>
   // Clear todo-related errors
   clearTodosError: () => void
   clearSelectedTodo: () => void
@@ -357,10 +357,10 @@ export const useWorkspaceStore = create<WorkspaceStore>()((set) => ({
 
   // ─── Todos — Detail ────────────────────────────────────────────
   // Fetches a single todo with subtodos for the detail page
-  fetchTodo: async (todoId: number) => {
+  fetchTodo: async (workspaceId: number, todoId: number) => {
     set({ selectedTodoLoading: true, selectedTodoError: null, selectedTodo: null })
     try {
-      const todo = await workspaceService.getTodoById(todoId)
+      const todo = await workspaceService.getTodoById(workspaceId, todoId)
       set({ selectedTodo: todo })
     } catch (err) {
       if (!isCancel(err)) {
@@ -373,10 +373,10 @@ export const useWorkspaceStore = create<WorkspaceStore>()((set) => ({
 
   // ─── Todos — Create ────────────────────────────────────────────
   // Creates a new todo — returns the created todo or null on failure
-  createTodo: async (payload: CreateTodoPayload) => {
+  createTodo: async (workspaceId: number, payload: CreateTodoPayload) => {
     set({ todoSubmitting: true, todoSubmitError: null })
     try {
-      const todo = await workspaceService.createTodo(payload)
+      const todo = await workspaceService.createTodo(workspaceId, payload)
       return todo
     } catch (err) {
       if (!isCancel(err)) {
@@ -390,10 +390,10 @@ export const useWorkspaceStore = create<WorkspaceStore>()((set) => ({
 
   // ─── Todos — Update ────────────────────────────────────────────
   // Updates a todo — returns the updated todo or null on failure
-  updateTodo: async (todoId: number, payload: UpdateTodoPayload) => {
+  updateTodo: async (workspaceId: number, todoId: number, payload: UpdateTodoPayload) => {
     set({ todoSubmitting: true, todoSubmitError: null })
     try {
-      const todo = await workspaceService.updateTodo(todoId, payload)
+      const todo = await workspaceService.updateTodo(workspaceId, todoId, payload)
       return todo
     } catch (err) {
       if (!isCancel(err)) {
@@ -407,10 +407,10 @@ export const useWorkspaceStore = create<WorkspaceStore>()((set) => ({
 
   // ─── Todos — Delete ────────────────────────────────────────────
   // Deletes a todo — returns true on success, false on failure
-  deleteTodo: async (todoId: number) => {
+  deleteTodo: async (workspaceId: number, todoId: number) => {
     set({ todoSubmitting: true, todoSubmitError: null })
     try {
-      await workspaceService.deleteTodo(todoId)
+      await workspaceService.deleteTodo(workspaceId, todoId)
       // Remove from local state so UI updates immediately
       set((state) => ({
         todos: state.todos.filter((t) => t.id !== todoId),

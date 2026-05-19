@@ -11,6 +11,8 @@
 //   Status    â€” inline dropdown to change status via onStatusChange
 //   Complete  â€” fires onComplete
 
+import { useState } from "react"
+
 import {
   Sheet,
   SheetContent,
@@ -18,6 +20,7 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet"
+import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
@@ -37,6 +40,7 @@ import {
   UserRoundX,
   UserCog,
   AlertCircle,
+  Eye,
   Paperclip,
   Trash2,
 } from "lucide-react"
@@ -62,6 +66,8 @@ const statusOptions: { value: ApiTicketStatus; label: string }[] = [
   { value: "in_progress", label: TICKET_STATUS_LABELS.in_progress },
   { value: "resolved",    label: TICKET_STATUS_LABELS.resolved },
 ]
+
+const STORAGE_BASE = (import.meta.env.VITE_API_URL ?? "http://localhost:8000/api").replace(/\/api\/?$/, "")
 
 type TicketDetailSheetProps = {
   /** Numeric id of the ticket to load; null means nothing is shown */
@@ -110,6 +116,7 @@ export function TicketDetailSheet({
   actionSubmitting = false,
   actionError,
 }: TicketDetailSheetProps) {
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null)
   const { hasPermission, hasRole } = usePermissions()
   const currentUser = useAuthStore((s) => s.user)
   const isAdmin   = hasRole("admin")
@@ -304,9 +311,27 @@ export function TicketDetailSheet({
                       {ticket.attachments.map((att) => (
                         <li
                           key={att.id}
-                          className="flex items-center gap-2 text-sm text-muted-foreground"
+                          className="flex items-center gap-3 rounded-md border bg-muted/20 px-3 py-2 text-sm text-muted-foreground"
                         >
-                          <Paperclip className="size-3.5 shrink-0" />
+                          {att.file_type.startsWith("image/") ? (
+                            <button
+                              type="button"
+                              onClick={() => setLightboxSrc(`${STORAGE_BASE}/storage/${att.file_path}`)}
+                              className="relative shrink-0"
+                              aria-label={`Preview ${att.file_name}`}
+                            >
+                              <img
+                                src={`${STORAGE_BASE}/storage/${att.file_path}`}
+                                alt={att.file_name}
+                                className="size-10 rounded object-cover border"
+                              />
+                              <span className="absolute inset-0 flex items-center justify-center rounded bg-black/35 opacity-0 transition-opacity hover:opacity-100">
+                                <Eye className="size-3.5 text-white" />
+                              </span>
+                            </button>
+                          ) : (
+                            <Paperclip className="size-3.5 shrink-0" />
+                          )}
                           <span className="truncate">{att.file_name}</span>
                           <span className="text-xs text-muted-foreground/60 shrink-0">
                             ({(att.file_size / 1024).toFixed(1)} KB)
@@ -434,6 +459,23 @@ export function TicketDetailSheet({
                   )}
                 </div>
               </div>
+
+              <Dialog
+                open={Boolean(lightboxSrc)}
+                onOpenChange={(open) => { if (!open) setLightboxSrc(null) }}
+              >
+                <DialogContent>
+                  {lightboxSrc && (
+                    <div className="flex items-center justify-center">
+                      <img
+                        src={lightboxSrc}
+                        alt="Attachment preview"
+                        className="max-w-full max-h-[80vh] object-contain"
+                      />
+                    </div>
+                  )}
+                </DialogContent>
+              </Dialog>
             </div>
           </>
         )}

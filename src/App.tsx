@@ -46,6 +46,7 @@ const EditTodoPage = lazy(() => import("@/app/workspaces/edit-todo-page"))
 const TodoDetailPage = lazy(() => import("@/app/workspaces/todo-detail-page"))
 const AccountPage = lazy(() => import("@/app/account/page"))
 const NotFoundPage = lazy(() => import("@/app/not-found"))
+const SupportTicketPage = lazy(() => import("@/app/tickets/pages/support-ticket-page"))
 
 function PageLoader() {
   return (
@@ -66,6 +67,8 @@ function App() {
                 <Route element={<AuthLayout />}>
                   <Route path="login" element={<LoginPage />} />
                 </Route>
+                {/* Public support ticket page — no auth required */}
+                <Route path="support-ticket" element={<SupportTicketPage />} />
                 <Route element={<AuthGuard><Layout /></AuthGuard>}>
                   <Route index element={<DashboardPage />} />
                   <Route path="users" element={<UsersPage />} />
@@ -77,11 +80,17 @@ function App() {
                   <Route path="projects/:id/kanban" element={<ProtectedRoute permission="view projects"><KanbanBoardPage /></ProtectedRoute>} />
                   <Route path="projects/:id/kanban-board" element={<ProtectedRoute permission="view projects"><KanbanBoardPage /></ProtectedRoute>} />
                   <Route path="tasks" element={<ProtectedRoute permission="view tasks"><TasksPage /></ProtectedRoute>} />
+                  <Route path="tasks/create" element={<ProtectedRoute permission="create tasks"><TasksPage /></ProtectedRoute>} />
+                  <Route path="tasks/:id/edit" element={<ProtectedRoute permission="edit tasks"><TasksPage /></ProtectedRoute>} />
+                  <Route path="tasks/:id/rate" element={<ProtectedRoute permission="create task ratings"><TasksPage /></ProtectedRoute>} />
                   <Route path="tasks/:id" element={<ProtectedRoute permission="view tasks"><TaskDetailPage /></ProtectedRoute>} />
                   <Route path="help-requests" element={<ProtectedRoute permission="view help requests"><HelpRequestsPage /></ProtectedRoute>} />
                   {/* Detail page for a single help request — GET /help-requests/{id} */}
                   <Route path="help-requests/:id" element={<ProtectedRoute permission="view help requests"><HelpRequestDetailPage /></ProtectedRoute>} />
                   <Route path="tickets" element={<ProtectedRoute permission="view tickets"><TicketsPage /></ProtectedRoute>} />
+                  <Route path="tickets/create" element={<ProtectedRoute permission="create help requests"><TicketsPage /></ProtectedRoute>} />
+                  <Route path="tickets/:id" element={<ProtectedRoute permission="view tickets"><TicketsPage /></ProtectedRoute>} />
+                  <Route path="tickets/:id/edit" element={<ProtectedRoute permission="edit tickets"><TicketsPage /></ProtectedRoute>} />
                   <Route path="ratings/configurations" element={<ProtectedRoute permission="view rating configs"><RatingsConfigurationsPage /></ProtectedRoute>} />
                   <Route path="ratings/configurations/new" element={<ProtectedRoute permission="create rating configs"><CreateConfigurationPage /></ProtectedRoute>} />
                   <Route path="ratings/configurations/:id" element={<ProtectedRoute permission="view rating configs"><ConfigurationDetailPage /></ProtectedRoute>} />
