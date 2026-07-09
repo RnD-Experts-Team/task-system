@@ -31,6 +31,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
   Table,
   TableBody,
   TableCell,
@@ -39,10 +46,14 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { useTask } from "@/app/tasks/hooks/useTask"
+import { useUpdateTaskStatus } from "@/app/tasks/hooks/useUpdateTaskStatus"
+import { useTasksStore } from "@/app/tasks/store/taskStore"
 import { taskService } from "@/app/tasks/services/taskService"
 import { usePermissions } from "@/hooks/usePermissions"
+import { useAuthStore } from "@/app/(auth)/stores/authStore"
 import type {
   Task,
+  TaskStatus,
   TaskHelpRequest,
   TaskRatingRecord,
   HelpRequestRatingValue,
@@ -606,6 +617,8 @@ export default function TaskDetailPage() {
   const { hasPermission } = usePermissions()
   const canEdit   = hasPermission("edit tasks")
   const canRate   = hasPermission("create task ratings")
+  // Current user id — used to detect whether this task is assigned to the developer
+  const currentUserId = useAuthStore((s) => s.user?.id) ?? null
 
   // Parse the route param to a number; null if invalid
   const taskId = useMemo(() => {
@@ -615,6 +628,16 @@ export default function TaskDetailPage() {
 
   // Fetch the task from the API via Zustand store
   const { task, loading, error } = useTask(taskId)
+
+  // Status-change support: assigned developers can update status (except "rated").
+  const { updateTaskStatus, updating } = useUpdateTaskStatus()
+  const refetchTask = useTasksStore((s) => s.fetchTask)
+
+  async function handleStatusChange(status: TaskStatus) {
+    if (!taskId) return
+    const updated = await updateTaskStatus(taskId, status)
+    if (updated) refetchTask(taskId)
+  }
 
   // Secondary fetch: assignment-focused payload from GET /tasks/{id}/with-assignments.
   // Runs after base details are loaded so the page remains usable even if this call fails.
@@ -655,6 +678,12 @@ export default function TaskDetailPage() {
     : Array.isArray(task?.assigned_users)
       ? task.assigned_users
       : []
+
+  // An assignee can change the task status to any non-"rated" value.
+  // "rated" is set by the rating system and cannot be changed by the user.
+  const isAssignee =
+    currentUserId != null && assignedUsers.some((u) => u.id === currentUserId)
+  const canChangeStatus = !!task && isAssignee && task.status !== "rated"
 
   // Subtask quick summary from the base task response (used only for the header stat tile)
   const subtasks = Array.isArray(task?.subtasks) ? task.subtasks : []
@@ -739,9 +768,30 @@ export default function TaskDetailPage() {
                 )}
               </div>
 
-              {/* Action buttons — Edit (edit tasks) and Rate (rating permissions) */}
-              {(canEdit || canRate) && (
-                <div className="flex flex-wrap gap-2 shrink-0">
+              {/* Action buttons — Status changer (assignees), Edit (edit tasks) and Rate (rating permissions) */}
+              {(canEdit || canRate || canChangeStatus) && (
+                <div className="flex flex-wrap gap-2 shrink-0 items-center">
+                  {canChangeStatus && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground shrink-0">Status:</span>
+                      <Select
+                        value={task.status}
+                        onValueChange={(v) => handleStatusChange(v as TaskStatus)}
+                        disabled={updating}
+                      >
+                        <SelectTrigger className="h-8 w-36 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {(["pending", "in_progress", "done"] as TaskStatus[]).map((s) => (
+                            <SelectItem key={s} value={s} className="text-xs">
+                              {statusLabel[s]}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
                   {canEdit && (
                     <Button
                       variant="outline"
