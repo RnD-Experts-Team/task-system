@@ -114,7 +114,7 @@ export default function AdminWorkSessionsPage() {
     },
     [applyRealtime]
   )
-  const { connected } = useWorkSessionsAdminChannel(handleRealtime)
+  const { status: liveStatus } = useWorkSessionsAdminChannel(handleRealtime)
 
   // ── Detail sheet + reopen ──────────────────────────────────────
   const [selectedId, setSelectedId] = useState<number | null>(null)
@@ -155,18 +155,23 @@ export default function AdminWorkSessionsPage() {
               variant="outline"
               className={cn(
                 "gap-1.5",
-                connected
+                liveStatus === "live"
                   ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
                   : "text-muted-foreground"
               )}
+              title={
+                liveStatus === "offline"
+                  ? "Real-time updates are unavailable. Use Refresh to load the latest rows."
+                  : undefined
+              }
             >
               <span
                 className={cn(
                   "size-1.5 rounded-full",
-                  connected ? "animate-pulse bg-emerald-500" : "bg-muted-foreground/50"
+                  liveStatus === "live" ? "animate-pulse bg-emerald-500" : "bg-muted-foreground/50"
                 )}
               />
-              {connected ? "Live" : "Connecting…"}
+              {liveStatus === "live" ? "Live" : liveStatus === "connecting" ? "Connecting…" : "Offline"}
             </Badge>
           </div>
           <p className="max-w-lg text-sm text-muted-foreground">

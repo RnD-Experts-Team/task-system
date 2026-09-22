@@ -124,9 +124,9 @@ function App() {
                   <Route path="work-sessions" element={<Navigate to="/work-sessions/my-day" replace />} />
                   <Route path="work-sessions/my-day" element={<MyDayPage />} />
                   <Route path="work-sessions/history" element={<WorkSessionHistoryPage />} />
-                  <Route path="work-sessions/admin/sessions" element={<ProtectedRoute permission="view all work sessions"><AdminWorkSessionsPage /></ProtectedRoute>} />
-                  <Route path="work-sessions/admin/reports" element={<ProtectedRoute permission="view work session reports"><WorkSessionReportsPage /></ProtectedRoute>} />
-                  <Route path="work-sessions/admin/ratings" element={<ProtectedRoute permission="rate work sessions"><MonthlyRatingsPage /></ProtectedRoute>} />
+                  <Route path="work-sessions/admin/sessions" element={<ProtectedRoute role="admin" permission="view all work sessions"><AdminWorkSessionsPage /></ProtectedRoute>} />
+                  <Route path="work-sessions/admin/reports" element={<ProtectedRoute role="admin" permission="view work session reports"><WorkSessionReportsPage /></ProtectedRoute>} />
+                  <Route path="work-sessions/admin/ratings" element={<ProtectedRoute role="admin" permission="rate work sessions"><MonthlyRatingsPage /></ProtectedRoute>} />
                   <Route path="*" element={<NotFoundPage />} />
                 </Route>
               </Routes>

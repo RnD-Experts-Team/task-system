@@ -17,7 +17,8 @@ export function ProtectedRoute({
   permissions,
   requireAll = false,
   role,
-  fallback = <Navigate to="/dashboard" replace />,
+  // The dashboard is the index route ("/"); "/dashboard" hits the catch-all 404.
+  fallback = <Navigate to="/" replace />,
 }: ProtectedRouteProps) {
   const { hasPermission, hasAnyPermission, hasAllPermissions, hasRole } =
     usePermissions();
