@@ -89,11 +89,28 @@ export function useBreadcrumbs(): BreadcrumbItem[] {
           case "workspaces":
             items.push({ label: "Workspaces", href: isLast ? undefined : "/workspaces" })
             break
+          case "work-sessions":
+            items.push({ label: "Work Sessions", href: isLast ? undefined : "/work-sessions/my-day" })
+            break
           default:
             // Generic top-level label
             items.push({ label: seg.replace(/-/g, " ").replace(/^./, (c) => c.toUpperCase()) })
         }
 
+        continue
+      }
+
+      // Work Sessions sub-pages — fixed labels, only the last segment is the current page
+      if (segments[0] === "work-sessions") {
+        const workSessionLabels: Record<string, string> = {
+          "my-day": "My Day",
+          history: "History",
+          admin: "Admin",
+          sessions: "All Sessions",
+          reports: "Reports",
+          ratings: "Monthly Ratings",
+        }
+        items.push({ label: workSessionLabels[seg] ?? seg })
         continue
       }
 

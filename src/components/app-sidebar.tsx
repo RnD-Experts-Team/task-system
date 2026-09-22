@@ -24,6 +24,7 @@ import {
   Clock,
   Shield,
   LayoutGrid,
+  CalendarCheck,
 } from "lucide-react"
 import { usePermissions } from "@/hooks/usePermissions";
 import taskSystemLogo from "@/assets/image.png"
@@ -96,6 +97,17 @@ const data = {
         { title: "Clocking Sessions", url: "/clocking/sessions" },
       ],
     },
+    {
+      title: "Work Sessions",
+      icon: CalendarCheck,
+      items: [
+        { title: "My Day", url: "/work-sessions/my-day" },
+        { title: "History", url: "/work-sessions/history" },
+        { title: "All Sessions", url: "/work-sessions/admin/sessions" },
+        { title: "Reports", url: "/work-sessions/admin/reports" },
+        { title: "Monthly Ratings", url: "/work-sessions/admin/ratings" },
+      ],
+    },
   ],
   
 }
@@ -146,6 +158,23 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           items: section.items.filter((item) => {
             if (item.url === "/clocking/sessions") {
               return isAdmin || hasPermission("view all clocking sessions")
+            }
+            return true
+          }),
+        }
+      }
+      if (section.title === "Work Sessions") {
+        return {
+          ...section,
+          items: section.items.filter((item) => {
+            if (item.url === "/work-sessions/admin/sessions") {
+              return isAdmin || hasPermission("view all work sessions")
+            }
+            if (item.url === "/work-sessions/admin/reports") {
+              return isAdmin || hasPermission("view work session reports")
+            }
+            if (item.url === "/work-sessions/admin/ratings") {
+              return isAdmin || hasPermission("rate work sessions")
             }
             return true
           }),
