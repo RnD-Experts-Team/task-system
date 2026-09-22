@@ -47,6 +47,12 @@ const TodoDetailPage = lazy(() => import("@/app/workspaces/todo-detail-page"))
 const AccountPage = lazy(() => import("@/app/account/page"))
 const NotFoundPage = lazy(() => import("@/app/not-found"))
 const SupportTicketPage = lazy(() => import("@/app/tickets/pages/support-ticket-page"))
+// Work Sessions module (daily plan → end-of-day review → admin reports & monthly ratings)
+const MyDayPage = lazy(() => import("@/app/work-sessions/pages/my-day/page"))
+const WorkSessionHistoryPage = lazy(() => import("@/app/work-sessions/pages/history/page"))
+const AdminWorkSessionsPage = lazy(() => import("@/app/work-sessions/pages/admin/sessions/page"))
+const WorkSessionReportsPage = lazy(() => import("@/app/work-sessions/pages/admin/reports/page"))
+const MonthlyRatingsPage = lazy(() => import("@/app/work-sessions/pages/admin/ratings/page"))
 
 function PageLoader() {
   return (
@@ -114,6 +120,13 @@ function App() {
                   <Route path="workspaces/:id/todos/:todoId/edit" element={<EditTodoPage />} />
                   <Route path="workspaces/:id/todos/:todoId" element={<TodoDetailPage />} />
                   <Route path="account" element={<AccountPage />} />
+                  {/* Work Sessions — employee pages need auth only; admin pages are permission-gated */}
+                  <Route path="work-sessions" element={<Navigate to="/work-sessions/my-day" replace />} />
+                  <Route path="work-sessions/my-day" element={<MyDayPage />} />
+                  <Route path="work-sessions/history" element={<WorkSessionHistoryPage />} />
+                  <Route path="work-sessions/admin/sessions" element={<ProtectedRoute permission="view all work sessions"><AdminWorkSessionsPage /></ProtectedRoute>} />
+                  <Route path="work-sessions/admin/reports" element={<ProtectedRoute permission="view work session reports"><WorkSessionReportsPage /></ProtectedRoute>} />
+                  <Route path="work-sessions/admin/ratings" element={<ProtectedRoute permission="rate work sessions"><MonthlyRatingsPage /></ProtectedRoute>} />
                   <Route path="*" element={<NotFoundPage />} />
                 </Route>
               </Routes>
