@@ -14,20 +14,45 @@ class WebSocketClient {
   private echo: Echo<any> | null = null;
   private subscribedChannels: Map<string, any> = new Map();
 
+  /**
+   * Websocket host. Prefer VITE_REVERB_HOST; otherwise fall back to the API
+   * host rather than "localhost" — an unset variable in a production build
+   * used to point every browser at its own machine, which can never connect.
+   */
+  private resolveHost(): string {
+    const configured = import.meta.env.VITE_REVERB_HOST;
+    if (configured) return configured;
+    try {
+      return new URL(import.meta.env.VITE_API_URL ?? '').hostname || 'localhost';
+    } catch {
+      return 'localhost';
+    }
+  }
+
+  /** Defaults to the page's own protocol so an https page never tries plain ws. */
+  private resolveScheme(): string {
+    return (
+      import.meta.env.VITE_REVERB_SCHEME ??
+      (typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'https' : 'http')
+    );
+  }
+
   initialize(): void {
     if (this.echo) {
       return;
     }
 
     window.Pusher = Pusher;
-    
+
+    const scheme = this.resolveScheme();
+
     this.echo = new Echo({
       broadcaster: 'reverb',
       key: import.meta.env.VITE_REVERB_APP_KEY ?? "tasks_key",
-      wsHost: import.meta.env.VITE_REVERB_HOST ?? 'localhost',
-      wsPort: import.meta.env.VITE_REVERB_PORT ?? 8789,
+      wsHost: this.resolveHost(),
+      wsPort: import.meta.env.VITE_REVERB_PORT ?? 8080,
       wssPort: import.meta.env.VITE_REVERB_PORT ?? 443,
-      forceTLS: (import.meta.env.VITE_REVERB_SCHEME ?? 'http') === 'https',
+      forceTLS: scheme === 'https',
       enabledTransports: ['ws', 'wss'],
       authEndpoint: '/broadcasting/auth',
       auth: {

@@ -47,7 +47,8 @@ VITE_REVERB_SCHEME=https             # https => wss://, http => ws://
 ```
 
 Rules:
-- `VITE_REVERB_APP_KEY` must match the backend's `REVERB_APP_KEY`, otherwise the "Live" badge stays on "Connecting…" and nothing updates in real time (the pages still work, just without live updates).
+- **These must be set before `npm run build`.** A build without them was deployed once and every browser tried `wss://localhost/app/...`, which can never connect. The client now falls back to the API host instead of `localhost`, but an explicit `VITE_REVERB_HOST` is still the only reliable setting.
+- `VITE_REVERB_APP_KEY` must match the backend's `REVERB_APP_KEY`, otherwise the badge shows "Offline" and nothing updates in real time (the pages still work — use **Refresh**).
 - An `https://` site cannot open `ws://` (mixed content) — use `https` + a TLS-terminating proxy for Reverb.
 - The API must allow the frontend origin (Laravel's default CORS is `*` for `api/*`; nothing to change unless you have restricted it).
 
@@ -88,7 +89,7 @@ If you change any `VITE_*` value later, **rebuild** — editing the env file on 
 1. Log in as an employee: sidebar shows **Work Sessions → My Day, History** only.
 2. My Day → **Start my day** → add an item (optionally link an assigned task) → drag to reorder → **End of day review** → set outcomes → **Confirm day** → page becomes read-only.
 3. Log in as an admin: sidebar also shows **All Sessions, Reports, Monthly Ratings**.
-4. All Sessions: badge shows **Live** (green). If it shows "Connecting…", check `VITE_REVERB_*` and the websocket proxy (browser devtools → Network → WS).
+4. All Sessions: badge shows **Live** (green). If it shows **Offline**, real-time is not reaching the browser — check `VITE_REVERB_*` and the websocket proxy (devtools → Network → WS). The table and Refresh still work.
 5. Reports: run the current month → KPI tiles, chart and per-user table render; **By task** tab groups linked tasks; **Export monthly PDF** downloads a `.zip`.
 6. Monthly Ratings: save a score → refresh → it persists; **Average** tab returns per-user and overall averages.
 7. Browser console has no errors on these pages.
@@ -102,3 +103,11 @@ Redeploy the previous `dist/` build (or check out the previous branch/tag and re
 - Dates: the API sends `work_date` as `YYYY-MM-DD` in the company timezone and timestamps as ISO-8601 UTC; the UI formats timestamps in the viewer's local timezone.
 - The Reverb channel `work-sessions.admin` is public (same as the existing `clocking.manager`); payloads contain only user names, dates, statuses and counts.
 - The admin user picker uses `GET /work-sessions/admin/users` (all users), not the paginated `/users` endpoint.
+
+## 8. Fixes included after the first live check
+
+- **Permission denial no longer shows a 404.** `ProtectedRoute` redirected to `/dashboard`, which is not a route (the dashboard is the index route `/`), so every denied route fell through to the catch-all 404 page. It now redirects to `/`.
+- **The three admin routes accept the `admin` role** (`role="admin"` alongside the permission), matching the sidebar, so an admin is never shown a menu entry that then rejects them.
+- **Websocket defaults hardened**: host falls back to the API host rather than `localhost`, and the scheme follows the page protocol, so an https page never attempts plain `ws://`.
+- **The live badge reports "Offline"** after 8s without a subscription instead of saying "Connecting…" forever.
+
