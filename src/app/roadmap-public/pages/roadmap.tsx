@@ -11,7 +11,7 @@ import { useRoadmap } from "../hooks/useRoadmap"
 import { isNotFound } from "../lib/errors"
 import { S } from "../lib/strings"
 import { containerClass, eyebrowClass } from "../lib/ui"
-import { boardPath, roadmapPath } from "../lib/url"
+import { boardPath } from "../lib/url"
 import { useSiteStore } from "../stores/siteStore"
 import { useViewerStore } from "../stores/viewerStore"
 import NotFoundPage from "./not-found"
@@ -24,8 +24,6 @@ export default function RoadmapColumnsPage() {
 
   usePageMeta({
     title: S.meta.roadmapTitle(board.data?.board.name ?? "", config?.site.name ?? ""),
-    description: board.data ? S.meta.roadmapDescription(board.data.board.name) : undefined,
-    canonical: boardSlug ? roadmapPath(boardSlug) : undefined,
   })
 
   useEffect(() => {

@@ -95,8 +95,6 @@ function PostView({
 
   usePageMeta({
     title: S.meta.postTitle(post.title, post.board.name, config.site.name),
-    description: post.excerpt || post.body.slice(0, 155),
-    canonical: canonicalPath,
   })
 
   const disabledReason = votingDisabledReason(board, post.status.slug, {

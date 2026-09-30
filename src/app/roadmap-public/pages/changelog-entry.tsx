@@ -12,7 +12,7 @@ import { isNotFound } from "../lib/errors"
 import { formatDate, isoOrUndefined } from "../lib/format"
 import { S } from "../lib/strings"
 import { cardClass, containerClass } from "../lib/ui"
-import { changelogEntryPath, changelogPath, postPath } from "../lib/url"
+import { changelogPath, postPath } from "../lib/url"
 import { useSiteStore } from "../stores/siteStore"
 import type { ChangelogDetail } from "../types"
 import NotFoundPage from "./not-found"
@@ -27,8 +27,6 @@ export default function PublicChangelogEntryPage() {
 
   usePageMeta({
     title: entry ? `${entry.title} | ${S.changelog.title} | ${siteName}` : `${S.changelog.title} | ${siteName}`,
-    description: entry?.summary ?? undefined,
-    canonical: entry ? changelogEntryPath(entry.slug) : undefined,
   })
 
   if (res.error) {

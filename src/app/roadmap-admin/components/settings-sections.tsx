@@ -96,7 +96,6 @@ export function BrandingSection({ draft, onChange, boardScope, errorFor, assets 
           <AssetUploader label="Logo" hint="PNG, JPG or WebP, up to 1 MB. Shown in the header." url={assets.urls.logo} busy={assets.busy === "logo"} onUpload={(f) => assets.onUpload("logo", f)} onRemove={() => assets.onRemove("logo")} />
           <AssetUploader label="Logo for dark mode" hint="Optional. Falls back to the main logo." dark url={assets.urls.logo_dark} busy={assets.busy === "logo_dark"} onUpload={(f) => assets.onUpload("logo_dark", f)} onRemove={() => assets.onRemove("logo_dark")} />
           <AssetUploader label="Favicon" hint="Square, up to 512 px. Saved as a 64 px PNG." small url={assets.urls.favicon} busy={assets.busy === "favicon"} onUpload={(f) => assets.onUpload("favicon", f)} onRemove={() => assets.onRemove("favicon")} />
-          <AssetUploader label="Social preview image" hint="Shown when links are shared. Best at 1200×630." url={assets.urls.og} busy={assets.busy === "og"} onUpload={(f) => assets.onUpload("og", f)} onRemove={() => assets.onRemove("og")} />
         </div>
       )}
     </div>
@@ -235,23 +234,6 @@ export function LimitsSection({ draft, onChange, errorFor }: SectionProps) {
         {field("comments_per_visitor_hour", "Comments per visitor per hour", "", 1000)}
         {field("tokens_per_ip_day", "New visitors per network per day", "How many anonymous identities one IP can create.")}
       </div>
-    </div>
-  )
-}
-
-// ─── SEO ──────────────────────────────────────────────────────────
-
-export function SeoSection({ draft, onChange, errorFor }: SectionProps) {
-  const s = draft.seo
-  return (
-    <div className="space-y-6">
-      <ToggleField label="Let search engines index the public site" hint="Turn off to add noindex to every public page and hide it from the sitemap." checked={s.indexable} onChange={(indexable) => onChange("seo", { indexable })} />
-      <Field label="Title suffix" htmlFor="seo-suffix" hint="Appended to page titles, e.g. “ | PNE”." error={errorFor("seo.title_suffix")}>
-        <Input id="seo-suffix" value={s.title_suffix} maxLength={60} onChange={(e) => onChange("seo", { title_suffix: e.target.value })} />
-      </Field>
-      <Field label="Meta description" htmlFor="seo-desc" hint={`${s.meta_description.length} / 160. Shown in search results when a page has none of its own.`} error={errorFor("seo.meta_description")}>
-        <Textarea id="seo-desc" className="min-h-20" value={s.meta_description} maxLength={160} onChange={(e) => onChange("seo", { meta_description: e.target.value })} />
-      </Field>
     </div>
   )
 }

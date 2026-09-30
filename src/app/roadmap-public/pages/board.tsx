@@ -22,7 +22,7 @@ import { usePostFeed } from "../hooks/usePostFeed"
 import { isNotFound } from "../lib/errors"
 import { S } from "../lib/strings"
 import { btn, cardClass, containerClass, eyebrowClass } from "../lib/ui"
-import { boardPath, roadmapPath } from "../lib/url"
+import { roadmapPath } from "../lib/url"
 import { useSiteStore } from "../stores/siteStore"
 import { useViewerStore } from "../stores/viewerStore"
 import type { BoardDetail, PublicConfig } from "../types"
@@ -61,8 +61,6 @@ function BoardFeed({ detail, config }: { detail: BoardDetail; config: PublicConf
 
   usePageMeta({
     title: S.meta.boardTitle(board.name, config.site.name),
-    description: board.description ?? S.meta.boardDescription(board.name),
-    canonical: boardPath(slug),
   })
 
   // Visitor state (own votes, pending items) loads in parallel with the list.

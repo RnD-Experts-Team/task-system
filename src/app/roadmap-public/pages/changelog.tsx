@@ -10,7 +10,7 @@ import { useInfiniteScroll } from "../hooks/useInfiniteScroll"
 import { usePageMeta } from "../hooks/usePageMeta"
 import { S } from "../lib/strings"
 import { btn, containerClass, eyebrowClass, inputClass } from "../lib/ui"
-import { RSS_URL, changelogPath } from "../lib/url"
+import { RSS_URL } from "../lib/url"
 import { useSiteStore } from "../stores/siteStore"
 import type { ChangelogLabel } from "../types"
 
@@ -29,8 +29,6 @@ export default function PublicChangelogPage() {
 
   usePageMeta({
     title: S.meta.changelogTitle(config?.site.name ?? ""),
-    description: S.meta.changelogDescription(config?.site.name ?? ""),
-    canonical: changelogPath(),
   })
 
   function setParam(key: "board" | "label", value: string | undefined) {
