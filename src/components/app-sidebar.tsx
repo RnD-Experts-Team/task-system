@@ -25,6 +25,7 @@ import {
   Shield,
   LayoutGrid,
   CalendarCheck,
+  Megaphone,
 } from "lucide-react"
 import { usePermissions } from "@/hooks/usePermissions";
 import taskSystemLogo from "@/assets/image.png"
@@ -108,6 +109,21 @@ const data = {
         { title: "Monthly Ratings", url: "/work-sessions/admin/ratings" },
       ],
     },
+    {
+      title: "Roadmap",
+      icon: Megaphone,
+      items: [
+        { title: "Overview", url: "/roadmap-admin" },
+        { title: "Moderation", url: "/roadmap-admin/moderation" },
+        { title: "Posts", url: "/roadmap-admin/posts" },
+        { title: "Roadmap Board", url: "/roadmap-admin/board" },
+        { title: "Boards & Statuses", url: "/roadmap-admin/boards" },
+        { title: "Tags", url: "/roadmap-admin/tags" },
+        { title: "Changelog", url: "/roadmap-admin/changelog" },
+        { title: "Visitors & Abuse", url: "/roadmap-admin/visitors" },
+        { title: "Settings", url: "/roadmap-admin/settings" },
+      ],
+    },
   ],
   
 }
@@ -178,6 +194,23 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             }
             return true
           }),
+        }
+      }
+      if (section.title === "Roadmap") {
+        const need: Record<string, string> = {
+          "/roadmap-admin": "moderate roadmap",
+          "/roadmap-admin/moderation": "moderate roadmap",
+          "/roadmap-admin/posts": "manage roadmap",
+          "/roadmap-admin/board": "manage roadmap",
+          "/roadmap-admin/boards": "manage roadmap",
+          "/roadmap-admin/tags": "manage roadmap",
+          "/roadmap-admin/changelog": "manage changelog",
+          "/roadmap-admin/visitors": "moderate roadmap",
+          "/roadmap-admin/settings": "manage roadmap settings",
+        }
+        return {
+          ...section,
+          items: section.items.filter((item) => isAdmin || hasPermission(need[item.url] ?? "manage roadmap")),
         }
       }
       return section

@@ -89,6 +89,9 @@ export function useBreadcrumbs(): BreadcrumbItem[] {
           case "workspaces":
             items.push({ label: "Workspaces", href: isLast ? undefined : "/workspaces" })
             break
+          case "roadmap-admin":
+            items.push({ label: "Roadmap", href: isLast ? undefined : "/roadmap-admin" })
+            break
           case "work-sessions":
             items.push({ label: "Work Sessions", href: isLast ? undefined : "/work-sessions/my-day" })
             break
@@ -97,6 +100,23 @@ export function useBreadcrumbs(): BreadcrumbItem[] {
             items.push({ label: seg.replace(/-/g, " ").replace(/^./, (c) => c.toUpperCase()) })
         }
 
+        continue
+      }
+
+      // Roadmap admin sub-pages — fixed labels
+      if (segments[0] === "roadmap-admin") {
+        const roadmapAdminLabels: Record<string, string> = {
+          moderation: "Moderation",
+          posts: "Posts",
+          board: "Roadmap Board",
+          boards: "Boards & Statuses",
+          tags: "Tags",
+          changelog: "Changelog",
+          visitors: "Visitors & Abuse",
+          settings: "Settings",
+          new: "New entry",
+        }
+        items.push({ label: roadmapAdminLabels[seg] ?? `#${seg}` })
         continue
       }
 
