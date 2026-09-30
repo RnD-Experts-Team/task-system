@@ -1,0 +1,8 @@
+# Only the public roadmap and changelog are meant to be indexed; the rest is the staff app.
+User-agent: *
+Allow: /roadmap
+Allow: /changelog
+Allow: /assets/
+Disallow: /
+
+Sitemap: https://tasks.rdexperts.tech/sitemap.xml

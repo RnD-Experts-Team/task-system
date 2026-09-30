@@ -4,13 +4,15 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 import { Toaster } from "@/components/ui/sonner"
 import { ThemeProvider } from "@/components/theme-provider"
 import { ErrorBoundary } from "@/components/error-boundary"
-import Layout from "@/app/layout"
 import AuthLayout from "@/app/(auth)/layout"
 import { AuthGuard } from "@/app/(auth)/components/AuthGuard"
 import { ProtectedRoute } from "@/components/ProtectedRoute"
 import { Loader2 } from "lucide-react"
 
 // Lazy-loaded pages
+// Authenticated shell is lazy so anonymous visitors of the public roadmap never download the
+// sidebar, Echo/pusher, or other staff-only code.
+const Layout = lazy(() => import("@/app/layout"))
 const DashboardPage = lazy(() => import("@/app/dashboard/page"))
 const LoginPage = lazy(() => import("@/app/(auth)/login/page"))
 const UsersPage = lazy(() => import("@/app/users/pages/page"))
@@ -53,6 +55,25 @@ const WorkSessionHistoryPage = lazy(() => import("@/app/work-sessions/pages/hist
 const AdminWorkSessionsPage = lazy(() => import("@/app/work-sessions/pages/admin/sessions/page"))
 const WorkSessionReportsPage = lazy(() => import("@/app/work-sessions/pages/admin/reports/page"))
 const MonthlyRatingsPage = lazy(() => import("@/app/work-sessions/pages/admin/ratings/page"))
+// Public Roadmap & Feedback (anonymous visitors) — module: src/app/roadmap-public
+const RoadmapPublicLayout = lazy(() => import("@/app/roadmap-public/layout"))
+const RoadmapHomePage = lazy(() => import("@/app/roadmap-public/pages/home"))
+const RoadmapBoardPage = lazy(() => import("@/app/roadmap-public/pages/board"))
+const RoadmapColumnsPage = lazy(() => import("@/app/roadmap-public/pages/roadmap"))
+const RoadmapPostPage = lazy(() => import("@/app/roadmap-public/pages/post"))
+const PublicChangelogPage = lazy(() => import("@/app/roadmap-public/pages/changelog"))
+const PublicChangelogEntryPage = lazy(() => import("@/app/roadmap-public/pages/changelog-entry"))
+// Roadmap admin console (staff) — module: src/app/roadmap-admin
+const RoadmapAdminOverviewPage = lazy(() => import("@/app/roadmap-admin/pages/overview/page"))
+const RoadmapAdminModerationPage = lazy(() => import("@/app/roadmap-admin/pages/moderation/page"))
+const RoadmapAdminPostsPage = lazy(() => import("@/app/roadmap-admin/pages/posts/page"))
+const RoadmapAdminBoardPage = lazy(() => import("@/app/roadmap-admin/pages/board/page"))
+const RoadmapAdminBoardsPage = lazy(() => import("@/app/roadmap-admin/pages/boards/page"))
+const RoadmapAdminTagsPage = lazy(() => import("@/app/roadmap-admin/pages/tags/page"))
+const RoadmapAdminChangelogPage = lazy(() => import("@/app/roadmap-admin/pages/changelog/page"))
+const RoadmapAdminChangelogEditorPage = lazy(() => import("@/app/roadmap-admin/pages/changelog-editor/page"))
+const RoadmapAdminVisitorsPage = lazy(() => import("@/app/roadmap-admin/pages/visitors/page"))
+const RoadmapAdminSettingsPage = lazy(() => import("@/app/roadmap-admin/pages/settings/page"))
 
 function PageLoader() {
   return (
@@ -75,6 +96,15 @@ function App() {
                 </Route>
                 {/* Public support ticket page — no auth required */}
                 <Route path="support-ticket" element={<SupportTicketPage />} />
+                {/* Public roadmap — anonymous, outside AuthGuard and the staff Layout */}
+                <Route element={<RoadmapPublicLayout />}>
+                  <Route path="roadmap" element={<RoadmapHomePage />} />
+                  <Route path="roadmap/:boardSlug" element={<RoadmapBoardPage />} />
+                  <Route path="roadmap/:boardSlug/roadmap" element={<RoadmapColumnsPage />} />
+                  <Route path="roadmap/:boardSlug/p/:postSlug" element={<RoadmapPostPage />} />
+                  <Route path="changelog" element={<PublicChangelogPage />} />
+                  <Route path="changelog/:slug" element={<PublicChangelogEntryPage />} />
+                </Route>
                 <Route element={<AuthGuard><Layout /></AuthGuard>}>
                   <Route index element={<DashboardPage />} />
                   <Route path="users" element={<UsersPage />} />
@@ -127,6 +157,18 @@ function App() {
                   <Route path="work-sessions/admin/sessions" element={<ProtectedRoute role="admin" permission="view all work sessions"><AdminWorkSessionsPage /></ProtectedRoute>} />
                   <Route path="work-sessions/admin/reports" element={<ProtectedRoute role="admin" permission="view work session reports"><WorkSessionReportsPage /></ProtectedRoute>} />
                   <Route path="work-sessions/admin/ratings" element={<ProtectedRoute role="admin" permission="rate work sessions"><MonthlyRatingsPage /></ProtectedRoute>} />
+                  {/* Roadmap admin — admin role always passes; other roles need the permission */}
+                  <Route path="roadmap-admin" element={<ProtectedRoute role="admin" permission="moderate roadmap"><RoadmapAdminOverviewPage /></ProtectedRoute>} />
+                  <Route path="roadmap-admin/moderation" element={<ProtectedRoute role="admin" permission="moderate roadmap"><RoadmapAdminModerationPage /></ProtectedRoute>} />
+                  <Route path="roadmap-admin/posts" element={<ProtectedRoute role="admin" permission="manage roadmap"><RoadmapAdminPostsPage /></ProtectedRoute>} />
+                  <Route path="roadmap-admin/board" element={<ProtectedRoute role="admin" permission="manage roadmap"><RoadmapAdminBoardPage /></ProtectedRoute>} />
+                  <Route path="roadmap-admin/boards" element={<ProtectedRoute role="admin" permission="manage roadmap"><RoadmapAdminBoardsPage /></ProtectedRoute>} />
+                  <Route path="roadmap-admin/tags" element={<ProtectedRoute role="admin" permission="manage roadmap"><RoadmapAdminTagsPage /></ProtectedRoute>} />
+                  <Route path="roadmap-admin/changelog" element={<ProtectedRoute role="admin" permission="manage changelog"><RoadmapAdminChangelogPage /></ProtectedRoute>} />
+                  <Route path="roadmap-admin/changelog/new" element={<ProtectedRoute role="admin" permission="manage changelog"><RoadmapAdminChangelogEditorPage /></ProtectedRoute>} />
+                  <Route path="roadmap-admin/changelog/:id" element={<ProtectedRoute role="admin" permission="manage changelog"><RoadmapAdminChangelogEditorPage /></ProtectedRoute>} />
+                  <Route path="roadmap-admin/visitors" element={<ProtectedRoute role="admin" permission="moderate roadmap"><RoadmapAdminVisitorsPage /></ProtectedRoute>} />
+                  <Route path="roadmap-admin/settings" element={<ProtectedRoute role="admin" permission="manage roadmap settings"><RoadmapAdminSettingsPage /></ProtectedRoute>} />
                   <Route path="*" element={<NotFoundPage />} />
                 </Route>
               </Routes>
