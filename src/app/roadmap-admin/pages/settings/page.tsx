@@ -1,5 +1,5 @@
 // src/app/roadmap-admin/pages/settings/page.tsx
-// Settings: Branding, Site copy, Moderation, Limits, SEO with a scope selector (global or a
+// Settings: Branding, Site copy, Moderation, Limits with a scope selector (global or a
 // board's allowed overrides) and a live preview driven by POST /settings/theme-preview.
 
 import { useState } from "react"
@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ErrorState } from "../../components/error-state"
 import { PageHeader } from "../../components/page-header"
 import { SettingsPreview } from "../../components/settings-preview"
-import { BrandingSection, LimitsSection, ModerationSection, SeoSection, SiteSection, type SectionProps } from "../../components/settings-sections"
+import { BrandingSection, LimitsSection, ModerationSection, SiteSection, type SectionProps } from "../../components/settings-sections"
 import { useBoards } from "../../hooks/useBoards"
 import { useRoadmapPermissions } from "../../hooks/useRoadmapPermissions"
 import { useRoadmapSettings } from "../../hooks/useRoadmapSettings"
@@ -25,15 +25,15 @@ import type { AssetType, RoadmapSettings, SettingsResponse } from "../../types"
 function withoutAssetPaths(settings: RoadmapSettings): RoadmapSettings {
   return {
     ...settings,
-    branding: { ...settings.branding, logo_path: null, logo_dark_path: null, favicon_path: null, og_image_path: null },
+    branding: { ...settings.branding, logo_path: null, logo_dark_path: null, favicon_path: null },
   }
 }
 
 function buildPayload(scope: string, draft: RoadmapSettings): UpdateSettingsPayload {
   if (scope === "global") {
     const { branding, ...rest } = withoutAssetPaths(draft)
-    const { logo_path, logo_dark_path, favicon_path, og_image_path, ...brandingFields } = branding
-    void [logo_path, logo_dark_path, favicon_path, og_image_path]
+    const { logo_path, logo_dark_path, favicon_path, ...brandingFields } = branding
+    void [logo_path, logo_dark_path, favicon_path]
     return { scope, data: { ...rest, branding: brandingFields } }
   }
   // Boards may only override a handful of keys
@@ -138,7 +138,6 @@ function SettingsEditor({ scope, onScopeChange, boards, response, canEdit, setti
     logo: response.assets.logo_url,
     logo_dark: response.assets.logo_dark_url,
     favicon: response.assets.favicon_url,
-    og: response.assets.og_image_url,
   }
 
   return (
@@ -203,7 +202,6 @@ function SettingsEditor({ scope, onScopeChange, boards, response, canEdit, setti
               <TabsTrigger value="site">Site copy</TabsTrigger>
               {!boardScope && <TabsTrigger value="moderation">Moderation</TabsTrigger>}
               {!boardScope && <TabsTrigger value="limits">Limits</TabsTrigger>}
-              {!boardScope && <TabsTrigger value="seo">SEO</TabsTrigger>}
             </TabsList>
             <Card className="mt-2">
               <CardContent>
@@ -226,9 +224,6 @@ function SettingsEditor({ scope, onScopeChange, boards, response, canEdit, setti
                 </TabsContent>
                 <TabsContent value="limits">
                   <LimitsSection {...sectionProps} />
-                </TabsContent>
-                <TabsContent value="seo">
-                  <SeoSection {...sectionProps} />
                 </TabsContent>
               </CardContent>
             </Card>

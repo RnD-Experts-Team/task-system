@@ -9,7 +9,7 @@ import { usePageMeta } from "../hooks/usePageMeta"
 import { formatDate, isoOrUndefined } from "../lib/format"
 import { S } from "../lib/strings"
 import { btn, cardClass, containerClass, eyebrowClass, liftClass } from "../lib/ui"
-import { boardPath, changelogEntryPath, changelogPath, homePath, roadmapPath } from "../lib/url"
+import { boardPath, changelogEntryPath, changelogPath, roadmapPath } from "../lib/url"
 import { useSiteStore } from "../stores/siteStore"
 import type { BoardSummary, HeroStyle } from "../types"
 
@@ -45,8 +45,6 @@ export default function RoadmapHomePage() {
 
   usePageMeta({
     title: config ? S.meta.homeTitle(config.site.name) : "Roadmap",
-    description: config?.site.hero_subtitle ?? config?.site.tagline ?? S.home.metaDescriptionFallback,
-    canonical: homePath(),
   })
 
   if (!config) return null

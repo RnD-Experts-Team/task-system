@@ -125,7 +125,6 @@ export interface PublicAssets {
   logo_url: string | null
   logo_dark_url: string | null
   favicon_url: string | null
-  og_image_url: string | null
 }
 
 export interface BoardSummary {

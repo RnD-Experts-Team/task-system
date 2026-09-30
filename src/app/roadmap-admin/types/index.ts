@@ -424,7 +424,6 @@ export interface RoadmapSettings {
     logo_path: string | null
     logo_dark_path: string | null
     favicon_path: string | null
-    og_image_path: string | null
   }
   features: {
     roadmap: boolean
@@ -449,11 +448,6 @@ export interface RoadmapSettings {
     comments_per_visitor_hour: number
     tokens_per_ip_day: number
   }
-  seo: {
-    indexable: boolean
-    title_suffix: string
-    meta_description: string
-  }
 }
 
 /** GET /settings?scope=global|board:{id} */
@@ -469,7 +463,7 @@ export interface ThemePreviewPayload {
   branding: Pick<RoadmapSettings["branding"], "primary" | "radius" | "font" | "default_theme">
 }
 
-export type AssetType = "logo" | "logo_dark" | "favicon" | "og"
+export type AssetType = "logo" | "logo_dark" | "favicon"
 
 export interface AssetUploadResult {
   type: AssetType

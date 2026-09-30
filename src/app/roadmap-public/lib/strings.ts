@@ -57,7 +57,6 @@ export const S = {
     allUpdates: "All updates",
     ctaFeedback: "Share an idea",
     ctaRoadmap: "See the roadmap",
-    metaDescriptionFallback: "Vote on ideas, follow progress, and see what just shipped.",
   },
 
   feed: {
@@ -229,12 +228,9 @@ export const S = {
   meta: {
     homeTitle: (site: string) => site,
     boardTitle: (board: string, site: string) => `${board} feedback | ${site}`,
-    boardDescription: (board: string) => `Vote on ideas and follow progress for ${board}.`,
     roadmapTitle: (board: string, site: string) => `${board} roadmap | ${site}`,
-    roadmapDescription: (board: string) => `See what's planned, in progress and shipped for ${board}.`,
     postTitle: (post: string, board: string, site: string) => `${post} | ${board} | ${site}`,
     changelogTitle: (site: string) => `Changelog | ${site}`,
-    changelogDescription: (site: string) => `The latest updates, improvements and fixes from ${site}.`,
     notFoundTitle: (site: string) => `Page not found | ${site}`,
   },
 } as const
